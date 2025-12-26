@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mine Visualization System</title>
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+  <!-- Main WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+  
+  <!-- UI Overlay (HTML layer above canvas) -->
+  <div id="ui-overlay">
+    <!-- Connection Status -->
+    <div id="connection-status" class="status-panel">
+      <span class="status-dot disconnected"></span>
+      <span class="status-text">Disconnected</span>
+    </div>
+    
+    <!-- Vehicle Count -->
+    <div id="vehicle-count" class="info-panel">
+      <span class="label">Active Vehicles:</span>
+      <span class="value">0</span>
+    </div>
+    
+    <!-- Selected Vehicle Info -->
+    <div id="vehicle-info" class="info-panel hidden">
+      <div class="info-header">
+        <span class="vehicle-id">--</span>
+        <button class="close-btn">&times;</button>
+      </div>
+      <div class="info-content">
+        <div class="info-row">
+          <span class="label">Type:</span>
+          <span class="value vehicle-type">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Position:</span>
+          <span class="value vehicle-position">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Heading:</span>
+          <span class="value vehicle-heading">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Speed:</span>
+          <span class="value vehicle-speed">--</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Status:</span>
+          <span class="value vehicle-status">--</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="loading-panel">
+      <div class="spinner"></div>
+      <span class="loading-text">Loading mine environment...</span>
+    </div>
+    
+    <!-- Controls Help -->
+    <div id="controls-help" class="help-panel">
+      <div class="help-item">🖱️ Left: Rotate</div>
+      <div class="help-item">🖱️ Right: Pan</div>
+      <div class="help-item">🖱️ Wheel: Zoom</div>
+    </div>
+  </div>
+  
+  <!-- Main Application Entry -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

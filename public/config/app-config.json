@@ -1,0 +1,72 @@
+{
+  "renderer": {
+    "antialias": true,
+    "maxPixelRatio": 2,
+    "toneMappingExposure": 2.0,
+    "shadows": false,
+    "clearColor": "0x87ceeb"
+  },
+  
+  "camera": {
+    "fov": 60,
+    "near": 0.1,
+    "far": 5000,
+    "initialPosition": { "x": 50, "y": 30, "z": 50 },
+    "target": { "x": 0, "y": 0, "z": 0 },
+    "dampingFactor": 0.05,
+    "zoomSpeed": 1.0,
+    "minDistance": 1,
+    "maxDistance": 500,
+    "panSpeed": 1.0,
+    "rotateSpeed": 0.5
+  },
+  
+  "mine": {
+    "modelPath": "/models/mine/scene.gltf",
+    "origin": { "x": 0, "y": 0, "z": 0 },
+    "opacity": 0.7
+  },
+  
+  "lighting": {
+    "ambient": {
+      "color": "0xffffff",
+      "intensity": 1.5
+    },
+    "hemisphere": {
+      "skyColor": "0xffffff",
+      "groundColor": "0xaaaaaa",
+      "intensity": 1.2
+    },
+    "pointLights": [
+      { "position": { "x": 0, "y": 10, "z": 0 }, "color": "0xffffcc", "intensity": 2.0, "distance": 80 },
+      { "position": { "x": 20, "y": 8, "z": 0 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 },
+      { "position": { "x": -20, "y": 8, "z": 0 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 },
+      { "position": { "x": 0, "y": 8, "z": 20 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 },
+      { "position": { "x": 0, "y": 8, "z": -20 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 },
+      { "position": { "x": -30, "y": 8, "z": -15 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 },
+      { "position": { "x": 25, "y": 8, "z": 15 }, "color": "0xffffcc", "intensity": 1.5, "distance": 60 }
+    ],
+    "showHelpers": false
+  },
+  
+  "vehicles": {
+    "interpolationSpeed": 5.0,
+    "rotationSpeed": 3.0,
+    "types": [
+      { "type": "dump_truck", "modelPath": "/models/vehicles/dumper_truck/dumper-truck.gltf" },
+      { "type": "loader", "modelPath": "/models/vehicles/dumper_truck/dumper-truck.gltf" },
+      { "type": "haul_truck", "modelPath": "/models/vehicles/dumper_truck/dumper-truck.gltf" }
+    ]
+  },
+  
+  "websocket": {
+    "url": "ws://localhost:8080",
+    "simulate": true,
+    "maxReconnectAttempts": 5,
+    "reconnectDelay": 3000
+  },
+  
+  "assets": {
+    "dracoPath": "/draco/"
+  }
+}
