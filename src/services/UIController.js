@@ -9,6 +9,9 @@ export class UIController {
   constructor(options = {}) {
     this.events = options.events;
     
+    // Track active location
+    this.activeLocationId = null;
+    
     // Cache DOM elements
     this.elements = {
       connectionStatus: document.getElementById('connection-status'),
@@ -18,7 +21,11 @@ export class UIController {
       vehicleCountValue: document.querySelector('#vehicle-count .value'),
       vehicleInfo: document.getElementById('vehicle-info'),
       loadingIndicator: document.getElementById('loading-indicator'),
-      loadingText: document.querySelector('#loading-indicator .loading-text')
+      loadingText: document.querySelector('#loading-indicator .loading-text'),
+      locationPanel: document.getElementById('location-panel'),
+      locationList: document.getElementById('location-list'),
+      toggleLocations: document.getElementById('toggle-locations'),
+      resetView: document.getElementById('reset-view')
     };
     
     // Setup event listeners
@@ -37,6 +44,116 @@ export class UIController {
         this.events?.emit('vehicle:deselected');
       });
     }
+    
+    // Toggle location panel collapse
+    if (this.elements.toggleLocations) {
+      this.elements.toggleLocations.addEventListener('click', () => {
+        this.toggleLocationPanel();
+      });
+    }
+    
+    // Reset view button
+    if (this.elements.resetView) {
+      this.elements.resetView.addEventListener('click', () => {
+        this.events?.emit('camera:reset');
+        this.clearActiveLocation();
+      });
+    }
+  }
+  
+  /**
+   * Toggle location panel expand/collapse
+   */
+  toggleLocationPanel() {
+    const list = this.elements.locationList;
+    const btn = this.elements.toggleLocations;
+    
+    if (list && btn) {
+      list.classList.toggle('collapsed');
+      btn.textContent = list.classList.contains('collapsed') ? '+' : '−';
+    }
+  }
+  
+  /**
+   * Setup location buttons from available locations
+   */
+  setupLocationButtons(locations) {
+    const list = this.elements.locationList;
+    if (!list) return;
+    
+    // Clear existing buttons
+    list.innerHTML = '';
+    
+    // Location color map (matching LocationMarkers)
+    const colorMap = {
+      'entry': '#4CAF50',
+      'loading': '#FF9800',
+      'extraction': '#F44336',
+      'ventilation': '#00BCD4'
+    };
+    
+    // Create button for each location
+    locations.forEach((location) => {
+      const button = document.createElement('button');
+      button.className = 'location-btn';
+      button.dataset.locationId = location.id;
+      
+      const color = colorMap[location.id] || '#00aaff';
+      
+      button.innerHTML = `
+        <span class="location-icon" style="background: ${color}40; border: 2px solid ${color};">
+          ${this.getLocationIcon(location.id)}
+        </span>
+        <span class="location-name">${location.name}</span>
+      `;
+      
+      button.addEventListener('click', () => {
+        this.events?.emit('location:goto', location.id);
+      });
+      
+      list.appendChild(button);
+    });
+    
+    console.log(`Created ${locations.length} location buttons`);
+  }
+  
+  /**
+   * Get icon emoji for location type
+   */
+  getLocationIcon(locationId) {
+    const icons = {
+      'entry': '🚪',
+      'loading': '📦',
+      'extraction': '⛏️',
+      'ventilation': '💨'
+    };
+    return icons[locationId] || '📍';
+  }
+  
+  /**
+   * Set active location button
+   */
+  setActiveLocation(locationId) {
+    // Clear previous active
+    this.clearActiveLocation();
+    
+    // Set new active
+    this.activeLocationId = locationId;
+    const btn = this.elements.locationList?.querySelector(
+      `[data-location-id="${locationId}"]`
+    );
+    if (btn) {
+      btn.classList.add('active');
+    }
+  }
+  
+  /**
+   * Clear active location
+   */
+  clearActiveLocation() {
+    this.activeLocationId = null;
+    const buttons = this.elements.locationList?.querySelectorAll('.location-btn');
+    buttons?.forEach(btn => btn.classList.remove('active'));
   }
   
   /**

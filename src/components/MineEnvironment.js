@@ -98,41 +98,90 @@ export class MineEnvironment {
   
   /**
    * Configure materials for underground appearance with transparency
-   * Sets 50% opacity to allow visibility of vehicles inside
+   * Applies different colors to different regions of the mine
    */
   configureMaterials() {
+    // First pass: calculate bounds to determine regions
+    const bounds = new THREE.Box3().setFromObject(this.model);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    bounds.getSize(size);
+    bounds.getCenter(center);
+    
+    // Region color palette - visually distinct colors matching location markers
+    const regionColors = [
+      new THREE.Color(0x4CAF50), // Green - Entry area (matches Main Entry marker)
+      new THREE.Color(0xFF9800), // Orange - Loading zone (matches Loading Bay marker)
+      new THREE.Color(0xF44336), // Red - Extraction area (matches Extraction Zone marker)
+      new THREE.Color(0x00BCD4), // Cyan - Ventilation (matches Ventilation Shaft marker)
+      new THREE.Color(0x9C27B0), // Purple - Deep tunnels
+      new THREE.Color(0x2196F3), // Blue - Storage/transit areas
+      new THREE.Color(0xFFEB3B), // Yellow - Caution zones
+      new THREE.Color(0x795548), // Brown - Rock face areas
+    ];
+    
+    // Store min bounds for region calculation
+    const minBounds = bounds.min.clone();
+    
     this.model.traverse((child) => {
       if (child.isMesh) {
+        // Compute bounding box in world space for accurate position
+        child.geometry.computeBoundingBox();
+        const meshBox = child.geometry.boundingBox.clone();
+        meshBox.applyMatrix4(child.matrixWorld);
+        const meshCenter = new THREE.Vector3();
+        meshBox.getCenter(meshCenter);
+        
+        // Determine region based on mesh center position
+        const regionColor = this.getRegionColor(meshCenter, minBounds, size, regionColors);
+        
         // Handle material (can be single or array)
         const materials = Array.isArray(child.material) 
           ? child.material 
           : [child.material];
         
-        materials.forEach((material) => {
-          // Enable transparency with 40% opacity for much better vehicle visibility
-          material.transparent = true;
-          material.opacity = 0.4;
+        materials.forEach((material, index) => {
+          // Clone material to avoid affecting other meshes
+          const newMaterial = material.clone();
           
-          // Ensure proper depth handling for transparent objects
-          material.depthWrite = true;
-          material.depthTest = true;
+          // Enable transparency with 40% opacity for vehicle visibility
+          newMaterial.transparent = true;
+          newMaterial.opacity = 0.5;
           
-          // Enable double-sided rendering for caves
-          material.side = THREE.DoubleSide;
-          
-          // Keep material bright for visibility
-          if (material.color) {
-            material.color.multiplyScalar(1.2); // Brighten slightly
+          // Apply region color
+          if (newMaterial.color) {
+            newMaterial.color.copy(regionColor);
+          } else {
+            newMaterial.color = regionColor.clone();
           }
           
+          // Ensure proper depth handling for transparent objects
+          newMaterial.depthWrite = true;
+          newMaterial.depthTest = true;
+          
+          // Enable double-sided rendering for caves
+          newMaterial.side = THREE.DoubleSide;
+          
           // Reduce metalness for rock appearance
-          if (material.metalness !== undefined) {
-            material.metalness = 0.1;
+          if (newMaterial.metalness !== undefined) {
+            newMaterial.metalness = 0.1;
           }
           
           // Increase roughness for rock texture
-          if (material.roughness !== undefined) {
-            material.roughness = 0.9;
+          if (newMaterial.roughness !== undefined) {
+            newMaterial.roughness = 0.85;
+          }
+          
+          // Add slight emissive for visibility in dark areas
+          if (newMaterial.emissive) {
+            newMaterial.emissive.copy(regionColor).multiplyScalar(0.1);
+          }
+          
+          // Replace material
+          if (Array.isArray(child.material)) {
+            child.material[index] = newMaterial;
+          } else {
+            child.material = newMaterial;
           }
         });
         
@@ -144,6 +193,36 @@ export class MineEnvironment {
         child.castShadow = false;
       }
     });
+    
+    console.log('Mine materials configured with regional colors');
+  }
+  
+  /**
+   * Determine color based on mesh position within the mine
+   * Uses discrete regions with no overlap
+   */
+  getRegionColor(worldPosition, minBounds, size, colors) {
+    // Normalize position to 0-1 range within bounds
+    const normalizedX = Math.max(0, Math.min(1, (worldPosition.x - minBounds.x) / size.x));
+    const normalizedZ = Math.max(0, Math.min(1, (worldPosition.z - minBounds.z) / size.z));
+    const normalizedY = Math.max(0, Math.min(1, (worldPosition.y - minBounds.y) / size.y));
+    
+    // Create region index based on position (2x4 grid = 8 regions)
+    // Use floor to ensure discrete boundaries with no overlap
+    const xRegion = normalizedX < 0.5 ? 0 : 1;
+    const zRegion = Math.min(3, Math.floor(normalizedZ * 4));
+    
+    // Combine into region index (deterministic, no randomness)
+    const regionIndex = xRegion + zRegion * 2;
+    
+    // Get base color (clone to avoid modifying original)
+    const baseColor = colors[regionIndex].clone();
+    
+    // Subtle depth variation only (no randomness to prevent flickering)
+    const depthFactor = 0.85 + (normalizedY * 0.15);
+    baseColor.multiplyScalar(depthFactor);
+    
+    return baseColor;
   }
   
   /**

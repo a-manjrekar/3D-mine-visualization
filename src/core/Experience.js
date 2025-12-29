@@ -21,6 +21,7 @@ import { MineEnvironment } from '../components/MineEnvironment.js';
 import { VehicleManager } from '../components/VehicleManager.js';
 import { LightingSystem } from '../components/LightingSystem.js';
 import { DrivableVolume } from '../components/DrivableVolume.js';
+import { LocationMarkers } from '../components/LocationMarkers.js';
 import { WebSocketService } from '../services/WebSocketService.js';
 import { UIController } from '../services/UIController.js';
 import { EventBus } from '../utils/EventBus.js';
@@ -136,6 +137,13 @@ export class Experience {
       events: this.events
     });
     
+    // Location markers for hotspot navigation
+    this.locationMarkers = new LocationMarkers({
+      scene: this.scene,
+      camera: this.camera.instance,
+      events: this.events
+    });
+    
     // WebSocket service for real-time data
     this.webSocket = new WebSocketService({
       config: this.config.websocket,
@@ -180,7 +188,31 @@ export class Experience {
       this.ui.hideVehicleInfo();
     });
     
-    // Handle click events for vehicle selection
+    // Location marker clicked - zoom to location
+    this.events.on('location:selected', (locationData) => {
+      this.zoomToLocation(locationData);
+    });
+    
+    // UI location button clicked
+    this.events.on('location:goto', (locationId) => {
+      const position = this.locationMarkers.getLocationPosition(locationId);
+      if (position) {
+        this.zoomToLocation({ id: locationId, position });
+      }
+    });
+    
+    // Reset view button clicked
+    this.events.on('camera:reset', () => {
+      if (this.initialCameraState) {
+        this.camera.moveTo(
+          this.initialCameraState.position,
+          this.initialCameraState.target,
+          1200
+        );
+      }
+    });
+    
+    // Handle click events for vehicle and location selection
     this.container.addEventListener('click', (event) => {
       this.handleClick(event);
     });
@@ -207,6 +239,23 @@ export class Experience {
     
     // Position camera to view the mine
     this.camera.focusOnObject(this.mineEnvironment.model);
+    
+    // Store initial camera state for reset functionality
+    this.initialCameraState = this.camera.getState();
+    
+    // Initialize location markers based on mine bounds
+    if (this.mineEnvironment.bounds && this.mineEnvironment.center) {
+      // Pass mine model for raycasting validation
+      this.locationMarkers.setMineModel(this.mineEnvironment.model);
+      
+      this.locationMarkers.initializeFromBounds(
+        this.mineEnvironment.bounds,
+        this.mineEnvironment.center
+      );
+      
+      // Update UI with available locations
+      this.ui.setupLocationButtons(this.locationMarkers.getLocations());
+    }
   }
   
   /**
@@ -229,6 +278,11 @@ export class Experience {
    * Handle click events for object selection
    */
   handleClick(event) {
+    // First check if a location marker was clicked
+    if (this.locationMarkers.handleClick(event, this.container)) {
+      return; // Location marker handled the click
+    }
+    
     const rect = this.container.getBoundingClientRect();
     this._mouse.set(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -254,6 +308,31 @@ export class Experience {
     } else {
       this.vehicleManager.deselectVehicle();
     }
+  }
+  
+  /**
+   * Zoom camera to a specific location
+   */
+  zoomToLocation(locationData) {
+    const { position, id, name } = locationData;
+    
+    // Calculate camera position - offset from target
+    const cameraOffset = {
+      x: position.x + 15,
+      y: position.y + 12,
+      z: position.z + 15
+    };
+    
+    // Smooth camera animation to location
+    this.camera.moveTo(cameraOffset, position, 1500);
+    
+    // Highlight the marker
+    this.locationMarkers.highlightMarker(id, true);
+    
+    // Update UI to show active location
+    this.ui.setActiveLocation(id);
+    
+    console.log(`Zooming to location: ${name || id}`);
   }
   
   /**
@@ -285,6 +364,7 @@ export class Experience {
     // Update subsystems
     this.camera.update(deltaTime);
     this.vehicleManager.update(deltaTime);
+    this.locationMarkers.update(deltaTime);
     
     // Render the scene
     this.renderer.render(this.scene, this.camera.instance);
@@ -319,6 +399,7 @@ export class Experience {
     this.vehicleManager?.dispose();
     this.mineEnvironment?.dispose();
     this.lighting?.dispose();
+    this.locationMarkers?.dispose();
     this.renderer?.dispose();
     this.camera?.dispose();
     this.sceneManager?.dispose();
