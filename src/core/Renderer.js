@@ -40,9 +40,7 @@ export class Renderer {
     // Set initial size
     this.setSize();
     
-    // Enable physically correct lights for realistic rendering
-    // Note: In Three.js r155+, this is default behavior
-    this.instance.useLegacyLights = false;
+    // Note: Physically correct lights are now default in Three.js r155+
     
     // Configure tone mapping for underground environment
     this.instance.toneMapping = THREE.ACESFilmicToneMapping;

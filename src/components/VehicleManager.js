@@ -30,6 +30,13 @@ export class VehicleManager {
     // Selection state
     this.selectedVehicleId = null;
     
+    // Trail state
+    this.trailsEnabled = false;
+    
+    // First-person view state
+    this.fpvActive = false;
+    this.fpvVehicleId = null;
+    
     // Interpolation settings
     this.interpolationSpeed = this.config.interpolationSpeed || 5.0;
     this.rotationSpeed = this.config.rotationSpeed || 3.0;
@@ -188,6 +195,13 @@ export class VehicleManager {
   updateVehicle(data) {
     const { id, type, position, heading, speed, status } = data;
     
+    // Debug log first few updates
+    if (!this._updateCount) this._updateCount = 0;
+    if (this._updateCount < 5) {
+      console.log(`VehicleManager: Received update for ${id}:`, { position, heading, speed });
+      this._updateCount++;
+    }
+    
     if (this.vehicles.has(id)) {
       // Update existing vehicle
       const vehicle = this.vehicles.get(id);
@@ -197,6 +211,7 @@ export class VehicleManager {
       vehicle.setStatus(status);
     } else {
       // Create new vehicle
+      console.log(`VehicleManager: Creating new vehicle ${id} at`, position);
       this.createVehicle(data);
     }
     
@@ -287,6 +302,11 @@ export class VehicleManager {
     
     // Add to scene
     this.scene.add(vehicle.mesh);
+    
+    // Enable trail if trails are globally enabled
+    if (this.trailsEnabled) {
+      vehicle.enableTrail(this.scene);
+    }
     
     console.log(`Created vehicle: ${id} (${type})`);
     
@@ -401,5 +421,76 @@ export class VehicleManager {
     });
     this.vehicles.clear();
     this.vehicleModels.clear();
+  }
+  
+  /**
+   * Enable trails for all vehicles
+   */
+  enableAllTrails() {
+    this.trailsEnabled = true;
+    this.vehicles.forEach((vehicle) => {
+      vehicle.enableTrail(this.scene);
+    });
+    console.log('Vehicle trails enabled');
+  }
+  
+  /**
+   * Disable trails for all vehicles
+   */
+  disableAllTrails() {
+    this.trailsEnabled = false;
+    this.vehicles.forEach((vehicle) => {
+      vehicle.disableTrail();
+    });
+    console.log('Vehicle trails disabled');
+  }
+  
+  /**
+   * Toggle trails for all vehicles
+   */
+  toggleTrails() {
+    if (this.trailsEnabled) {
+      this.disableAllTrails();
+    } else {
+      this.enableAllTrails();
+    }
+    return this.trailsEnabled;
+  }
+  
+  /**
+   * Enable trail for a specific vehicle
+   */
+  enableVehicleTrail(vehicleId) {
+    const vehicle = this.vehicles.get(vehicleId);
+    if (vehicle) {
+      vehicle.enableTrail(this.scene);
+    }
+  }
+  
+  /**
+   * Clear all vehicle trails
+   */
+  clearAllTrails() {
+    this.vehicles.forEach((vehicle) => {
+      vehicle.clearTrail();
+    });
+  }
+  
+  /**
+   * Get vehicle cabin position for FPV
+   */
+  getVehicleCabinPosition(vehicleId) {
+    const vehicle = this.vehicles.get(vehicleId);
+    if (!vehicle) return null;
+    return vehicle.getCabinPosition();
+  }
+  
+  /**
+   * Get vehicle forward direction for FPV
+   */
+  getVehicleForwardDirection(vehicleId) {
+    const vehicle = this.vehicles.get(vehicleId);
+    if (!vehicle) return null;
+    return vehicle.getForwardDirection();
   }
 }

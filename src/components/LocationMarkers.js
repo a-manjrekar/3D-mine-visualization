@@ -43,7 +43,7 @@ export class LocationMarkers {
       { id: 'entry', name: 'Main Entry', icon: '🚪', color: 0x4CAF50 },
       { id: 'loading', name: 'Loading Bay', icon: '📦', color: 0xFF9800 },
       { id: 'extraction', name: 'Extraction Zone', icon: '⛏️', color: 0xF44336 },
-      { id: 'ventilation', name: 'Ventilation Shaft', icon: '💨', color: 0x00BCD4 },
+      { id: 'ventilation', name: 'Service Tunnel', icon: '🔧', color: 0x00BCD4 },
     ];
     
     this.scene.add(this.markerGroup);

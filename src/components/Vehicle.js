@@ -24,6 +24,14 @@ import * as THREE from 'three';
 // Reusable objects to avoid garbage collection
 const _desiredPos = new THREE.Vector3();
 
+// Trail colors per vehicle type - darker colors for visibility from above
+const TRAIL_COLORS = {
+  'dump_truck': 0x006633,   // Dark green
+  'loader': 0x993300,       // Dark orange/brown
+  'haul_truck': 0x003366,   // Dark blue
+  'default': 0x660066       // Dark purple
+};
+
 export class Vehicle {
   constructor(options = {}) {
     this.id = options.id;
@@ -36,6 +44,15 @@ export class Vehicle {
     this.targetHeading = 0;
     this.speed = options.speed || 0;
     this.status = options.status || 'idle';
+    
+    // Trail state
+    this.trailEnabled = false;
+    this.trailPositions = [];
+    this.maxTrailLength = options.maxTrailLength || 150;
+    this.trailMesh = null;
+    this.trailMaterial = null;
+    this.trailUpdateCounter = 0;
+    this.trailUpdateInterval = 2; // Update every 2 frames
     
     // Interpolation settings
     this.positionLerpSpeed = options.interpolationSpeed || 5.0;
@@ -122,18 +139,10 @@ export class Vehicle {
   
   /**
    * Set target position for interpolation
-   * CONTAINMENT: Validates target before accepting
    */
   setTargetPosition(position) {
-    const candidatePos = new THREE.Vector3(position.x, position.y, position.z);
-    
-    // Always accept target - let interpolation handle containment
-    this.targetPosition.copy(candidatePos);
-    
-    // Track validity
-    if (this.isPositionValid(candidatePos)) {
-      // Valid target - will be stored as lastValid during interpolation
-    }
+    this.targetPosition.set(position.x, position.y, position.z);
+    this.hasValidPosition = true;
   }
   
   /**
@@ -191,32 +200,21 @@ export class Vehicle {
     
     // Interpolate rotation
     this.interpolateRotation(deltaTime);
+    
+    // Update trail if enabled
+    this.updateTrail();
   }
   
   /**
-   * Smooth position interpolation with tunnel containment
-   * Keeps vehicles on tunnel floor and inside valid areas
+   * Smooth position interpolation - simple lerp without collision blocking
+   * Collision is handled at the path level, not frame-by-frame
    */
   interpolatePosition(deltaTime) {
     // Calculate interpolation factor (frame-rate independent)
     const lerpFactor = 1 - Math.exp(-this.positionLerpSpeed * deltaTime);
     
-    // Calculate desired next position using cached vector
-    _desiredPos.copy(this.currentPosition).lerp(this.targetPosition, lerpFactor);
-    
-    // Use collision system to snap to tunnel floor
-    if (this.drivableVolume && this.drivableVolume.isReady) {
-      const result = this.drivableVolume.checkCollision(this.currentPosition, _desiredPos);
-      
-      if (!result.blocked) {
-        // Valid position found - move there
-        this.currentPosition.copy(result.position);
-      }
-      // If blocked, keep current position (don't move)
-    } else {
-      // No collision system - just lerp
-      this.currentPosition.copy(_desiredPos);
-    }
+    // Simple lerp toward target - paths are pre-validated
+    this.currentPosition.lerp(this.targetPosition, lerpFactor);
     
     // Apply to mesh
     this.mesh.position.copy(this.currentPosition);
@@ -317,6 +315,160 @@ export class Vehicle {
       }
     });
     
+    this.disposeTrail();
     this.originalMaterials = [];
+  }
+  
+  /**
+   * Enable trail visualization
+   */
+  enableTrail(scene) {
+    if (this.trailEnabled) return;
+    
+    this.trailEnabled = true;
+    this.trailScene = scene;
+    this.trailPositions = [];
+    
+    // Get trail color
+    const color = TRAIL_COLORS[this.type] || TRAIL_COLORS['default'];
+    
+    // Create material for trail tube
+    this.trailMaterial = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide
+    });
+    
+    // Trail mesh will be created when we have enough points
+    this.trailMesh = null;
+    
+    console.log(`Trail enabled for vehicle ${this.id}`);
+  }
+  
+  /**
+   * Disable trail visualization
+   */
+  disableTrail() {
+    if (!this.trailEnabled) return;
+    
+    this.trailEnabled = false;
+    this.disposeTrail();
+    console.log(`Trail disabled for vehicle ${this.id}`);
+  }
+  
+  /**
+   * Dispose trail resources
+   */
+  disposeTrail() {
+    if (this.trailMesh && this.trailScene) {
+      this.trailScene.remove(this.trailMesh);
+      if (this.trailMesh.geometry) {
+        this.trailMesh.geometry.dispose();
+      }
+    }
+    if (this.trailMaterial) {
+      this.trailMaterial.dispose();
+    }
+    this.trailMesh = null;
+    this.trailMaterial = null;
+    this.trailPositions = [];
+  }
+  
+  /**
+   * Update trail with current position
+   */
+  updateTrail() {
+    if (!this.trailEnabled || !this.trailMaterial) return;
+    
+    // Only update every few frames for performance
+    this.trailUpdateCounter++;
+    if (this.trailUpdateCounter < this.trailUpdateInterval) return;
+    this.trailUpdateCounter = 0;
+    
+    // Add current position to trail
+    const pos = this.currentPosition.clone();
+    pos.y += 0.3; // Slightly above ground to be visible
+    
+    // Check if we've moved enough to add a new point
+    if (this.trailPositions.length > 0) {
+      const lastPos = this.trailPositions[this.trailPositions.length - 1];
+      const dist = pos.distanceTo(lastPos);
+      if (dist < 0.2) return; // Don't add if too close
+    }
+    
+    this.trailPositions.push(pos.clone());
+    
+    // Limit trail length - remove oldest
+    if (this.trailPositions.length > this.maxTrailLength) {
+      this.trailPositions.shift();
+    }
+    
+    // Need at least 2 points for a tube
+    if (this.trailPositions.length < 2) return;
+    
+    // Remove old trail mesh
+    if (this.trailMesh && this.trailScene) {
+      this.trailScene.remove(this.trailMesh);
+      this.trailMesh.geometry.dispose();
+    }
+    
+    // Create curve from positions
+    const curve = new THREE.CatmullRomCurve3(this.trailPositions);
+    
+    // Create tube geometry along the curve
+    const tubeGeometry = new THREE.TubeGeometry(
+      curve,
+      Math.max(2, this.trailPositions.length - 1), // tubularSegments
+      0.05,  // radius - thin tube
+      4,     // radialSegments - low for performance
+      false  // closed
+    );
+    
+    // Create mesh
+    this.trailMesh = new THREE.Mesh(tubeGeometry, this.trailMaterial);
+    this.trailMesh.frustumCulled = false;
+    this.trailScene.add(this.trailMesh);
+  }
+  
+  /**
+   * Clear trail history
+   */
+  clearTrail() {
+    this.trailPositions = [];
+    if (this.trailMesh && this.trailScene) {
+      this.trailScene.remove(this.trailMesh);
+      this.trailMesh.geometry.dispose();
+      this.trailMesh = null;
+    }
+  }
+  
+  /**
+   * Get position for first-person camera (cabin position)
+   */
+  getCabinPosition() {
+    // Position inside the truck cabin
+    const pos = this.currentPosition.clone();
+    pos.y += 1.2; // Height of cabin
+    
+    // Offset slightly forward in direction of heading
+    const headingRad = THREE.MathUtils.degToRad(this.currentHeading);
+    pos.x += Math.sin(headingRad) * 0.3;
+    pos.z += Math.cos(headingRad) * 0.3;
+    
+    return pos;
+  }
+  
+  /**
+   * Get look-at direction for first-person view
+   */
+  getForwardDirection() {
+    const headingRad = THREE.MathUtils.degToRad(this.currentHeading);
+    const forward = new THREE.Vector3(
+      Math.sin(headingRad),
+      0,
+      Math.cos(headingRad)
+    );
+    return this.currentPosition.clone().add(forward.multiplyScalar(10));
   }
 }

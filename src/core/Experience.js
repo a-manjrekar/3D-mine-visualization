@@ -23,9 +23,11 @@ import { LightingSystem } from '../components/LightingSystem.js';
 import { DrivableVolume } from '../components/DrivableVolume.js';
 import { LocationMarkers } from '../components/LocationMarkers.js';
 import { WebSocketService } from '../services/WebSocketService.js';
+import { VehicleAPIService } from '../services/VehicleAPIService.js';
 import { UIController } from '../services/UIController.js';
 import { EventBus } from '../utils/EventBus.js';
 import { ConfigLoader } from '../utils/ConfigLoader.js';
+import { TrailObjectPool } from '../utils/TrailObjectPool.js';
 
 export class Experience {
   constructor(options = {}) {
@@ -49,11 +51,34 @@ export class Experience {
       offset: new THREE.Vector3(8, 6, 8)
     };
     
+    // First-person view state
+    this.fpvMode = {
+      active: false,
+      vehicleId: null
+    };
+    
     // Minimap state
     this.minimap = {
       renderer: null,
       camera: null,
       scene: null
+    };
+    
+    // Filter state
+    this.vehicleFilters = {
+      types: { dump_truck: true, loader: true, haul_truck: true },
+      status: { moving: true, idle: true, loading: true, maintenance: true },
+      groups: { hauling: true, loading: true, transport: true }
+    };
+    
+    // Selected level
+    this.selectedLevel = 'all';
+    
+    // Distance-based update throttling
+    this.distanceThrottling = {
+      enabled: true,
+      nearDistance: 50,
+      farDistance: 150
     };
     
     // Event system for inter-component communication
@@ -77,7 +102,7 @@ export class Experience {
       // Load assets and environment
       await this.loadAssets();
       
-      // Connect to data source
+      // Connect to data source (use API service instead of raw WebSocket)
       this.connectDataSource();
       
       // Start the render loop
@@ -143,12 +168,20 @@ export class Experience {
       assetLoader: this.assetLoader
     });
     
+    // Trail object pool for efficient trail rendering
+    this.trailPool = new TrailObjectPool({
+      scene: this.scene,
+      initialSize: 20,
+      maxSize: 100
+    });
+    
     // Vehicle management system
     this.vehicleManager = new VehicleManager({
       scene: this.scene,
       assetLoader: this.assetLoader,
       config: this.config.vehicles,
-      events: this.events
+      events: this.events,
+      trailPool: this.trailPool
     });
     
     // Location markers for hotspot navigation
@@ -158,9 +191,15 @@ export class Experience {
       events: this.events
     });
     
-    // WebSocket service for real-time data
+    // WebSocket service for real-time data (fallback)
     this.webSocket = new WebSocketService({
       config: this.config.websocket,
+      events: this.events
+    });
+    
+    // API service for production-like data handling
+    this.apiService = new VehicleAPIService({
+      config: this.config.api || { simulate: true },
       events: this.events
     });
     
@@ -229,6 +268,7 @@ export class Experience {
     // UI location button clicked
     this.events.on('location:goto', (locationId) => {
       this.stopFollowMode();
+      this.stopFPVMode();
       const position = this.locationMarkers.getLocationPosition(locationId);
       if (position) {
         this.zoomToLocation({ id: locationId, position });
@@ -238,6 +278,7 @@ export class Experience {
     // Reset view button clicked
     this.events.on('camera:reset', () => {
       this.stopFollowMode();
+      this.stopFPVMode();
       if (this.initialCameraState) {
         this.camera.moveTo(
           this.initialCameraState.position,
@@ -247,12 +288,134 @@ export class Experience {
       }
     });
     
+    // Toggle vehicle trails
+    this.events.on('trails:toggle', () => {
+      const enabled = this.vehicleManager.toggleTrails();
+      this.events.emit('trails:status', enabled);
+    });
+    
+    // First-person view start
+    this.events.on('fpv:start', (vehicleId) => {
+      this.startFPVMode(vehicleId);
+    });
+    
+    // First-person view stop
+    this.events.on('fpv:stop', () => {
+      this.stopFPVMode();
+    });
+    
+    // Vehicle filter event
+    this.events.on('vehicles:filter', (filterState) => {
+      this.vehicleFilters = filterState;
+      this.applyVehicleFilters();
+    });
+    
+    // Filter reset event
+    this.events.on('vehicles:filter:reset', () => {
+      this.vehicleFilters = {
+        types: { dump_truck: true, loader: true, haul_truck: true },
+        status: { moving: true, idle: true, loading: true, maintenance: true },
+        groups: { hauling: true, loading: true, transport: true }
+      };
+      this.applyVehicleFilters();
+    });
+    
+    // Level selection event
+    this.events.on('level:select', (level) => {
+      this.selectedLevel = level;
+      this.applyLevelFilter();
+    });
+
     // Handle click events for vehicle and location selection
     this.container.addEventListener('click', (event) => {
       this.handleClick(event);
     });
   }
   
+  /**
+   * Apply vehicle filters to show/hide vehicles
+   */
+  applyVehicleFilters() {
+    this.vehicleManager.vehicles.forEach((vehicle, id) => {
+      const vehicleData = this.ui.vehicleData.get(id);
+      if (!vehicleData) return;
+      
+      let visible = true;
+      
+      // Check type filter
+      if (!this.vehicleFilters.types[vehicleData.type]) {
+        visible = false;
+      }
+      
+      // Check status filter
+      if (!this.vehicleFilters.status[vehicleData.status]) {
+        visible = false;
+      }
+      
+      // Check group filter
+      if (vehicleData.group && !this.vehicleFilters.groups[vehicleData.group]) {
+        visible = false;
+      }
+      
+      vehicle.mesh.visible = visible;
+    });
+    
+    this.updateVehicleCounts();
+  }
+  
+  /**
+   * Apply level filter to show only vehicles on selected level
+   */
+  applyLevelFilter() {
+    if (this.selectedLevel === 'all') {
+      // Show all (respect other filters)
+      this.applyVehicleFilters();
+      return;
+    }
+    
+    const levelNum = parseInt(this.selectedLevel);
+    
+    this.vehicleManager.vehicles.forEach((vehicle, id) => {
+      const vehicleData = this.ui.vehicleData.get(id);
+      if (!vehicleData) return;
+      
+      const vehicleLevel = vehicleData.level || 0;
+      const visible = vehicleLevel === levelNum;
+      
+      vehicle.mesh.visible = visible;
+    });
+    
+    this.updateVehicleCounts();
+  }
+  
+  /**
+   * Update vehicle counts in UI (by type and level)
+   */
+  updateVehicleCounts() {
+    const typeCounts = { dump_truck: 0, loader: 0, haul_truck: 0 };
+    const levelCounts = { all: 0, 0: 0, 1: 0, 2: 0, 3: 0 };
+    
+    this.vehicleManager.vehicles.forEach((vehicle, id) => {
+      const vehicleData = this.ui.vehicleData.get(id);
+      if (!vehicleData) return;
+      
+      // Count by type
+      if (typeCounts[vehicleData.type] !== undefined) {
+        typeCounts[vehicleData.type]++;
+      }
+      
+      // Count by level
+      const level = vehicleData.level || 0;
+      levelCounts.all++;
+      if (levelCounts[level] !== undefined) {
+        levelCounts[level]++;
+      }
+    });
+    
+    this.ui.updateFilterCounts(typeCounts);
+    this.ui.updateLevelCounts(levelCounts);
+  }
+
   /**
    * Load all required assets
    */
@@ -301,16 +464,26 @@ export class Experience {
    * Connect to real-time data source
    */
   connectDataSource() {
-    // Pass mine model and bounds to WebSocket for vehicle path constraints
+    // Pass mine model and bounds to API service for vehicle path constraints
     if (this.mineEnvironment.bounds) {
-      this.webSocket.setMineData(
+      // Pass to API service
+      this.apiService.setMineData(
         this.mineEnvironment.model,
-        this.mineEnvironment.bounds, 
+        this.mineEnvironment.bounds,
         this.mineEnvironment.center
       );
     }
-    // Start WebSocket connection (simulated in development)
-    this.webSocket.connect();
+    
+    // Use API service for production-like behavior
+    // Falls back to simulation if no backend available
+    this.apiService.initialize().then(() => {
+      console.log('VehicleAPIService initialized');
+      // Update initial counts
+      setTimeout(() => this.updateVehicleCounts(), 500);
+    });
+    
+    // Disable WebSocket simulation - API service handles vehicle updates
+    // this.webSocket.connect();
   }
   
   /**
@@ -418,6 +591,9 @@ export class Experience {
     // Disable orbit controls while following
     this.camera.controls.enabled = false;
     
+    // Notify API service that this vehicle is being followed (highest priority)
+    this.apiService.setFollowedVehicle(vehicleId);
+    
     console.log(`Following vehicle: ${vehicleId}`);
   }
   
@@ -432,6 +608,9 @@ export class Experience {
     
     // Re-enable orbit controls
     this.camera.controls.enabled = true;
+    
+    // Clear followed vehicle in API service
+    this.apiService.setFollowedVehicle(null);
     
     console.log('Follow mode stopped');
   }
@@ -479,72 +658,95 @@ export class Experience {
   }
   
   /**
-   * Initialize minimap renderer
+   * Start first-person view inside a vehicle
+   */
+  startFPVMode(vehicleId) {
+    const vehicle = this.vehicleManager.vehicles.get(vehicleId);
+    if (!vehicle) {
+      console.warn(`Cannot start FPV: ${vehicleId} - not found`);
+      return;
+    }
+    
+    // Stop follow mode if active
+    this.stopFollowMode();
+    
+    this.fpvMode.active = true;
+    this.fpvMode.vehicleId = vehicleId;
+    
+    // Disable orbit controls
+    this.camera.controls.enabled = false;
+    
+    // Show FPV overlay
+    this.ui.showFPVOverlay(vehicleId);
+    
+    console.log(`First-person view started for: ${vehicleId}`);
+  }
+  
+  /**
+   * Stop first-person view
+   */
+  stopFPVMode() {
+    if (!this.fpvMode.active) return;
+    
+    this.fpvMode.active = false;
+    this.fpvMode.vehicleId = null;
+    
+    // Re-enable orbit controls
+    this.camera.controls.enabled = true;
+    
+    // Hide FPV overlay
+    this.ui.hideFPVOverlay();
+    
+    console.log('First-person view stopped');
+  }
+  
+  /**
+   * Update camera for first-person view
+   */
+  updateFPVCamera(deltaTime) {
+    if (!this.fpvMode.active || !this.fpvMode.vehicleId) return;
+    
+    const vehicle = this.vehicleManager.vehicles.get(this.fpvMode.vehicleId);
+    if (!vehicle) {
+      this.stopFPVMode();
+      return;
+    }
+    
+    // Get cabin position and forward direction
+    const cabinPos = vehicle.getCabinPosition();
+    const lookAt = vehicle.getForwardDirection();
+    
+    // Smooth camera transition
+    const lerpFactor = 1 - Math.pow(0.001, deltaTime);
+    this.camera.instance.position.lerp(cabinPos, lerpFactor);
+    
+    // Look forward
+    this.camera.controls.target.lerp(lookAt, lerpFactor);
+    this.camera.controls.update();
+  }
+  
+  /**
+   * Initialize minimap renderer (DISABLED)
    */
   initMinimap() {
-    const canvas = document.getElementById('minimap-canvas');
-    if (!canvas) return;
-    
-    // Create minimap renderer
-    this.minimap.renderer = new THREE.WebGLRenderer({ 
-      canvas, 
-      antialias: false,
-      alpha: true 
-    });
-    this.minimap.renderer.setSize(180, 150);
-    this.minimap.renderer.setPixelRatio(1); // Lower quality for performance
-    
-    // Create orthographic camera for top-down view
-    const aspect = 180 / 150;
-    const frustumSize = 200; // Increased to show full map
-    this.minimap.camera = new THREE.OrthographicCamera(
-      -frustumSize * aspect / 2,
-      frustumSize * aspect / 2,
-      frustumSize / 2,
-      -frustumSize / 2,
-      0.1,
-      1000
-    );
-    
-    // Position camera above the mine looking down
-    this.minimap.camera.position.set(0, 100, 0);
-    this.minimap.camera.lookAt(0, 0, 0);
-    this.minimap.camera.up.set(0, 0, -1);
-    
-    console.log('Minimap initialized');
+    // Minimap feature removed
+    return;
   }
   
   /**
-   * Update minimap camera position based on mine bounds
+   * Update minimap camera position based on mine bounds (DISABLED)
    */
   updateMinimapBounds() {
-    if (!this.minimap.camera || !this.mineEnvironment.bounds) return;
-    
-    const bounds = this.mineEnvironment.bounds;
-    const center = this.mineEnvironment.center;
-    const size = new THREE.Vector3();
-    bounds.getSize(size);
-    
-    // Set camera to cover the mine area with padding
-    const maxSize = Math.max(size.x, size.z) * 1.1; // Increased to show full map with padding
-    const aspect = 180 / 150;
-    
-    this.minimap.camera.left = -maxSize * aspect / 2;
-    this.minimap.camera.right = maxSize * aspect / 2;
-    this.minimap.camera.top = maxSize / 2;
-    this.minimap.camera.bottom = -maxSize / 2;
-    this.minimap.camera.position.set(center.x, center.y + 100, center.z);
-    this.minimap.camera.lookAt(center.x, center.y, center.z);
-    this.minimap.camera.updateProjectionMatrix();
+    // Minimap feature removed
+    return;
   }
   
   /**
-   * Render minimap
+   * Render minimap (DISABLED)
    */
   renderMinimap() {
-    if (!this.minimap.renderer || !this.minimap.camera) return;
-    
-    this.minimap.renderer.render(this.scene, this.minimap.camera);
+    // Minimap feature removed
+    return;
   }
   
   /**
@@ -576,10 +778,19 @@ export class Experience {
     // Update follow camera if active
     this.updateFollowCamera(deltaTime);
     
+    // Update FPV camera if active
+    this.updateFPVCamera(deltaTime);
+    
     // Update subsystems
     this.camera.update(deltaTime);
     this.vehicleManager.update(deltaTime);
     this.locationMarkers.update(deltaTime);
+    
+    // Update LOD based on camera distance (every 10 frames for performance)
+    if (Math.floor(elapsedTime * 60) % 10 === 0) {
+      this.mineEnvironment.updateLOD(this.camera.instance);
+      this.updateVisibleVehicles();
+    }
     
     // Render the scene
     this.renderer.render(this.scene, this.camera.instance);
@@ -588,6 +799,27 @@ export class Experience {
     if (Math.floor(elapsedTime * 10) % 2 === 0) {
       this.renderMinimap();
     }
+  }
+  
+  /**
+   * Update list of visible vehicles for API service priority
+   */
+  updateVisibleVehicles() {
+    if (!this.distanceThrottling.enabled) return;
+    
+    const cameraPos = this.camera.instance.position;
+    const visibleIds = [];
+    
+    this.vehicleManager.vehicles.forEach((vehicle, id) => {
+      if (!vehicle.mesh.visible) return;
+      
+      const distance = cameraPos.distanceTo(vehicle.mesh.position);
+      if (distance < this.distanceThrottling.farDistance) {
+        visibleIds.push(id);
+      }
+    });
+    
+    this.apiService.setVisibleVehicles(visibleIds);
   }
   
   /**
@@ -612,8 +844,12 @@ export class Experience {
   dispose() {
     this.isRunning = false;
     
-    // Disconnect WebSocket
+    // Disconnect services
     this.webSocket?.disconnect();
+    this.apiService?.disconnect();
+    
+    // Dispose trail pool
+    this.trailPool?.dispose();
     
     // Dispose minimap
     this.minimap.renderer?.dispose();

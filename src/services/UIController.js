@@ -16,8 +16,25 @@ export class UIController {
     this.isFollowingVehicle = false;
     this.followedVehicleId = null;
     
+    // Track trails state
+    this.trailsEnabled = false;
+    
+    // Track FPV mode
+    this.isFPVActive = false;
+    this.fpvVehicleId = null;
+    
     // Track all vehicles for search
     this.vehicleData = new Map();
+    
+    // Filter state
+    this.filterState = {
+      types: { dump_truck: true, loader: true, haul_truck: true },
+      status: { moving: true, idle: true, loading: true, maintenance: true },
+      groups: { hauling: true, loading: true, transport: true }
+    };
+    
+    // Level selector state
+    this.selectedLevel = 'all';
     
     // Cache DOM elements
     this.elements = {
@@ -42,11 +59,33 @@ export class UIController {
       searchClear: document.getElementById('search-clear'),
       searchResults: document.getElementById('search-results'),
       followBtn: document.getElementById('follow-vehicle'),
-      minimapCanvas: document.getElementById('minimap-canvas')
+      minimapCanvas: document.getElementById('minimap-canvas'),
+      // Trail and FPV elements
+      trailsBtn: document.getElementById('toggle-trails'),
+      fpvBtn: document.getElementById('fpv-vehicle'),
+      fpvOverlay: document.getElementById('fpv-overlay'),
+      fpvClose: document.getElementById('fpv-close'),
+      fpvVehicleId: document.getElementById('fpv-vehicle-id'),
+      fpvSpeed: document.getElementById('fpv-speed'),
+      fpvStatus: document.getElementById('fpv-status'),
+      fpvVideo: document.getElementById('fpv-video'),
+      fpvTimestamp: document.getElementById('fpv-timestamp'),
+      // Filter panel elements
+      filterPanel: document.getElementById('vehicle-filter-panel'),
+      filterContent: document.getElementById('filter-content'),
+      toggleFilter: document.getElementById('toggle-filter'),
+      applyFilters: document.getElementById('apply-filters'),
+      resetFilters: document.getElementById('reset-filters'),
+      // Level selector elements
+      levelPanel: document.getElementById('level-selector-panel'),
+      levelContent: document.getElementById('level-content'),
+      toggleLevels: document.getElementById('toggle-levels')
     };
     
     // Setup event listeners
     this.setupEventListeners();
+    this.setupFilterListeners();
+    this.setupLevelListeners();
   }
   
   /**
@@ -92,6 +131,33 @@ export class UIController {
         this.toggleFollowMode();
       });
     }
+    
+    // Toggle trails button
+    if (this.elements.trailsBtn) {
+      this.elements.trailsBtn.addEventListener('click', () => {
+        this.toggleTrails();
+      });
+    }
+    
+    // FPV button
+    if (this.elements.fpvBtn) {
+      this.elements.fpvBtn.addEventListener('click', () => {
+        this.startFPVMode();
+      });
+    }
+    
+    // FPV close button
+    if (this.elements.fpvClose) {
+      this.elements.fpvClose.addEventListener('click', () => {
+        this.stopFPVMode();
+      });
+    }
+    
+    // Listen for trails status updates
+    this.events?.on('trails:status', (enabled) => {
+      this.trailsEnabled = enabled;
+      this.updateTrailsButton();
+    });
     
     // Search input
     if (this.elements.searchInput) {
@@ -492,5 +558,336 @@ export class UIController {
     if (this.isFollowingVehicle) {
       this.events?.emit('vehicle:follow:start', vehicleId);
     }
+  }
+  
+  /**
+   * Toggle vehicle trails
+   */
+  toggleTrails() {
+    this.events?.emit('trails:toggle');
+  }
+  
+  /**
+   * Update trails button state
+   */
+  updateTrailsButton() {
+    if (this.elements.trailsBtn) {
+      this.elements.trailsBtn.classList.toggle('active', this.trailsEnabled);
+      const text = this.elements.trailsBtn.querySelector('.trails-text');
+      if (text) {
+        text.textContent = this.trailsEnabled ? 'Hide Trails' : 'Show Trails';
+      }
+    }
+  }
+  
+  /**
+   * Start first-person view mode
+   */
+  startFPVMode() {
+    if (!this.followedVehicleId) return;
+    
+    this.isFPVActive = true;
+    this.fpvVehicleId = this.followedVehicleId;
+    this.elements.fpvBtn?.classList.add('active');
+    this.events?.emit('fpv:start', this.fpvVehicleId);
+  }
+  
+  /**
+   * Stop first-person view mode
+   */
+  stopFPVMode() {
+    this.isFPVActive = false;
+    this.fpvVehicleId = null;
+    this.elements.fpvBtn?.classList.remove('active');
+    this.events?.emit('fpv:stop');
+  }
+  
+  /**
+   * Show FPV overlay with vehicle info
+   */
+  showFPVOverlay(vehicleId) {
+    const overlay = this.elements.fpvOverlay;
+    if (!overlay) return;
+    
+    overlay.classList.remove('hidden');
+    
+    // Update vehicle ID display
+    if (this.elements.fpvVehicleId) {
+      this.elements.fpvVehicleId.textContent = vehicleId;
+    }
+    
+    // Start video playback (YouTube embed)
+    if (this.elements.fpvVideo) {
+      // Set YouTube embed URL with autoplay
+      this.elements.fpvVideo.src = 'https://www.youtube.com/embed/9DKgMwRUuec?autoplay=1&mute=1&loop=1&playlist=9DKgMwRUuec&controls=0&showinfo=0&rel=0&modestbranding=1';
+    }
+    
+    // Start updating FPV info and timestamp
+    this.fpvUpdateInterval = setInterval(() => {
+      this.updateFPVInfo();
+      this.updateFPVTimestamp();
+    }, 200);
+  }
+  
+  /**
+   * Hide FPV overlay
+   */
+  hideFPVOverlay() {
+    const overlay = this.elements.fpvOverlay;
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+    
+    // Stop video (clear iframe src)
+    if (this.elements.fpvVideo) {
+      this.elements.fpvVideo.src = '';
+    }
+    
+    // Stop updating FPV info
+    if (this.fpvUpdateInterval) {
+      clearInterval(this.fpvUpdateInterval);
+      this.fpvUpdateInterval = null;
+    }
+  }
+  
+  /**
+   * Update FPV timestamp display
+   */
+  updateFPVTimestamp() {
+    if (this.elements.fpvTimestamp) {
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString('en-US', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      const date = now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      this.elements.fpvTimestamp.textContent = `${date} ${timestamp}`;
+    }
+  }
+  
+  /**
+   * Update FPV overlay info
+   */
+  updateFPVInfo() {
+    if (!this.fpvVehicleId) return;
+    
+    const vehicleData = this.vehicleData.get(this.fpvVehicleId);
+    if (!vehicleData) return;
+    
+    if (this.elements.fpvSpeed) {
+      this.elements.fpvSpeed.textContent = `${parseFloat(vehicleData.speed || 0).toFixed(1)} km/h`;
+    }
+    if (this.elements.fpvStatus) {
+      this.elements.fpvStatus.textContent = this.formatStatus(vehicleData.status || 'unknown');
+    }
+  }
+  
+  /**
+   * Setup filter panel event listeners
+   */
+  setupFilterListeners() {
+    // Toggle filter panel
+    if (this.elements.toggleFilter) {
+      this.elements.toggleFilter.addEventListener('click', () => {
+        this.toggleFilterPanel();
+      });
+    }
+    
+    // Apply filters button
+    if (this.elements.applyFilters) {
+      this.elements.applyFilters.addEventListener('click', () => {
+        this.applyFilters();
+      });
+    }
+    
+    // Reset filters button
+    if (this.elements.resetFilters) {
+      this.elements.resetFilters.addEventListener('click', () => {
+        this.resetFilters();
+      });
+    }
+    
+    // Individual checkbox listeners for immediate feedback
+    const checkboxIds = [
+      'filter-dump-truck', 'filter-loader', 'filter-haul-truck',
+      'filter-moving', 'filter-idle', 'filter-loading', 'filter-maintenance',
+      'filter-hauling', 'filter-loading-group', 'filter-transport'
+    ];
+    
+    checkboxIds.forEach(id => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.addEventListener('change', () => {
+          this.updateFilterState();
+        });
+      }
+    });
+  }
+  
+  /**
+   * Toggle filter panel expand/collapse
+   */
+  toggleFilterPanel() {
+    const content = this.elements.filterContent;
+    const btn = this.elements.toggleFilter;
+    
+    if (content && btn) {
+      content.classList.toggle('collapsed');
+      btn.textContent = content.classList.contains('collapsed') ? '+' : '−';
+    }
+  }
+  
+  /**
+   * Update filter state from checkboxes
+   */
+  updateFilterState() {
+    // Type filters
+    this.filterState.types.dump_truck = document.getElementById('filter-dump-truck')?.checked ?? true;
+    this.filterState.types.loader = document.getElementById('filter-loader')?.checked ?? true;
+    this.filterState.types.haul_truck = document.getElementById('filter-haul-truck')?.checked ?? true;
+    
+    // Status filters
+    this.filterState.status.moving = document.getElementById('filter-moving')?.checked ?? true;
+    this.filterState.status.idle = document.getElementById('filter-idle')?.checked ?? true;
+    this.filterState.status.loading = document.getElementById('filter-loading')?.checked ?? true;
+    this.filterState.status.maintenance = document.getElementById('filter-maintenance')?.checked ?? true;
+    
+    // Group filters
+    this.filterState.groups.hauling = document.getElementById('filter-hauling')?.checked ?? true;
+    this.filterState.groups.loading = document.getElementById('filter-loading-group')?.checked ?? true;
+    this.filterState.groups.transport = document.getElementById('filter-transport')?.checked ?? true;
+  }
+  
+  /**
+   * Apply current filters
+   */
+  applyFilters() {
+    this.updateFilterState();
+    this.events?.emit('vehicles:filter', this.filterState);
+    console.log('Filters applied:', this.filterState);
+  }
+  
+  /**
+   * Reset all filters to default (all checked)
+   */
+  resetFilters() {
+    // Reset state
+    Object.keys(this.filterState.types).forEach(k => this.filterState.types[k] = true);
+    Object.keys(this.filterState.status).forEach(k => this.filterState.status[k] = true);
+    Object.keys(this.filterState.groups).forEach(k => this.filterState.groups[k] = true);
+    
+    // Reset checkboxes
+    const checkboxIds = [
+      'filter-dump-truck', 'filter-loader', 'filter-haul-truck',
+      'filter-moving', 'filter-idle', 'filter-loading', 'filter-maintenance',
+      'filter-hauling', 'filter-loading-group', 'filter-transport'
+    ];
+    
+    checkboxIds.forEach(id => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) checkbox.checked = true;
+    });
+    
+    // Emit reset
+    this.events?.emit('vehicles:filter:reset');
+    console.log('Filters reset');
+  }
+  
+  /**
+   * Update vehicle type counts in filter panel
+   */
+  updateFilterCounts(counts) {
+    const countElements = {
+      'count-dump-truck': counts.dump_truck || 0,
+      'count-loader': counts.loader || 0,
+      'count-haul-truck': counts.haul_truck || 0
+    };
+    
+    Object.entries(countElements).forEach(([id, count]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = count;
+    });
+  }
+  
+  /**
+   * Setup level selector event listeners
+   */
+  setupLevelListeners() {
+    // Toggle level panel
+    if (this.elements.toggleLevels) {
+      this.elements.toggleLevels.addEventListener('click', () => {
+        this.toggleLevelPanel();
+      });
+    }
+    
+    // Level item click listeners
+    const levelItems = document.querySelectorAll('.level-item');
+    levelItems.forEach(item => {
+      item.addEventListener('click', () => {
+        this.selectLevel(item.dataset.level);
+      });
+    });
+  }
+  
+  /**
+   * Toggle level panel expand/collapse
+   */
+  toggleLevelPanel() {
+    const content = this.elements.levelContent;
+    const btn = this.elements.toggleLevels;
+    
+    if (content && btn) {
+      content.classList.toggle('collapsed');
+      btn.textContent = content.classList.contains('collapsed') ? '+' : '−';
+    }
+  }
+  
+  /**
+   * Select a mine level
+   */
+  selectLevel(level) {
+    this.selectedLevel = level;
+    
+    // Update UI - remove active from all, add to selected
+    const items = document.querySelectorAll('.level-item');
+    items.forEach(item => {
+      item.classList.toggle('active', item.dataset.level === level);
+    });
+    
+    // Emit event
+    this.events?.emit('level:select', level);
+    console.log('Level selected:', level);
+  }
+  
+  /**
+   * Update vehicle counts per level
+   */
+  updateLevelCounts(counts) {
+    // counts = { all: 7, 0: 3, 1: 2, 2: 1, 3: 1 }
+    Object.entries(counts).forEach(([level, count]) => {
+      const elId = level === 'all' ? 'vehicles-all' : `vehicles-level-${level}`;
+      const el = document.getElementById(elId);
+      if (el) el.textContent = count;
+    });
+  }
+  
+  /**
+   * Get current filter state
+   */
+  getFilterState() {
+    return this.filterState;
+  }
+  
+  /**
+   * Get current selected level
+   */
+  getSelectedLevel() {
+    return this.selectedLevel;
   }
 }

@@ -9,6 +9,7 @@
  * - Configurable origin offset for coordinate alignment
  * - Semi-transparent material for vehicle visibility (50% opacity)
  * - Frustum culling optimization
+ * - Level of Detail (LOD) for performance optimization
  */
 
 import * as THREE from 'three';
@@ -21,6 +22,11 @@ export class MineEnvironment {
     
     this.model = null;
     this.isLoaded = false;
+    
+    // LOD system
+    this.lodGroup = null;
+    this.lodLevels = [];
+    this.lodEnabled = true;
   }
   
   /**
@@ -44,6 +50,9 @@ export class MineEnvironment {
       
       // Configure materials for transparency (50% opacity)
       this.configureMaterials();
+      
+      // Create LOD system
+      this.setupLOD();
       
       // Optimize for rendering
       this.optimizeModel();
@@ -97,6 +106,111 @@ export class MineEnvironment {
   }
   
   /**
+   * Setup Level of Detail system for performance
+   */
+  setupLOD() {
+    // Store original meshes for LOD switching
+    this.lodLevels = [];
+    
+    this.model.traverse((child) => {
+      if (child.isMesh && child.geometry) {
+        // Store reference to original mesh for LOD management
+        this.lodLevels.push({
+          mesh: child,
+          originalGeometry: child.geometry,
+          simplifiedGeometry: null,
+          currentLevel: 0
+        });
+      }
+    });
+    
+    console.log(`LOD system initialized for ${this.lodLevels.length} meshes`);
+  }
+  
+  /**
+   * Update LOD based on camera distance
+   * @param {THREE.Camera} camera - The active camera
+   */
+  updateLOD(camera) {
+    if (!this.lodEnabled || !this.center) return;
+    
+    const cameraDistance = camera.position.distanceTo(this.center);
+    
+    // LOD thresholds
+    const LOD_HIGH_DISTANCE = 50;
+    const LOD_MED_DISTANCE = 150;
+    const LOD_LOW_DISTANCE = 300;
+    
+    let targetLevel = 0; // Full detail
+    
+    if (cameraDistance > LOD_LOW_DISTANCE) {
+      targetLevel = 3; // Lowest detail
+    } else if (cameraDistance > LOD_MED_DISTANCE) {
+      targetLevel = 2; // Low detail  
+    } else if (cameraDistance > LOD_HIGH_DISTANCE) {
+      targetLevel = 1; // Medium detail
+    }
+    
+    this.applyLODLevel(targetLevel);
+  }
+  
+  /**
+   * Apply LOD level to all meshes
+   * @param {number} level - LOD level (0=highest, 3=lowest)
+   */
+  applyLODLevel(level) {
+    this.lodLevels.forEach(lodInfo => {
+      if (lodInfo.currentLevel === level) return;
+      
+      const mesh = lodInfo.mesh;
+      
+      // Adjust material based on LOD level
+      if (mesh.material) {
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        
+        materials.forEach(material => {
+          // Reduce quality at distance
+          switch (level) {
+            case 0: // Full detail
+              material.opacity = 0.5;
+              mesh.visible = true;
+              break;
+            case 1: // Medium detail
+              material.opacity = 0.45;
+              mesh.visible = true;
+              break;
+            case 2: // Low detail
+              material.opacity = 0.4;
+              mesh.visible = true;
+              break;
+            case 3: // Very low detail - hide small meshes
+              material.opacity = 0.35;
+              // Hide very small meshes at extreme distance
+              const bbox = new THREE.Box3().setFromObject(mesh);
+              const size = bbox.getSize(new THREE.Vector3());
+              if (size.length() < 5) {
+                mesh.visible = false;
+              }
+              break;
+          }
+        });
+      }
+      
+      lodInfo.currentLevel = level;
+    });
+  }
+  
+  /**
+   * Enable/disable LOD system
+   */
+  setLODEnabled(enabled) {
+    this.lodEnabled = enabled;
+    if (!enabled) {
+      this.applyLODLevel(0); // Reset to full detail
+    }
+  }
+  
+  /**
    * Configure materials for underground appearance with transparency
    * Applies different colors to different regions of the mine using vertex colors
    * This ensures proper color boundaries with no overlapping
@@ -114,7 +228,7 @@ export class MineEnvironment {
       new THREE.Color(0x4CAF50), // Green - Entry area (matches Main Entry marker)
       new THREE.Color(0xFF9800), // Orange - Loading zone (matches Loading Bay marker)
       new THREE.Color(0xF44336), // Red - Extraction area (matches Extraction Zone marker)
-      new THREE.Color(0x00BCD4), // Cyan - Ventilation (matches Ventilation Shaft marker)
+      new THREE.Color(0x00BCD4), // Cyan - Service Tunnel
       new THREE.Color(0x9C27B0), // Purple - Deep tunnels
       new THREE.Color(0x2196F3), // Blue - Storage/transit areas
       new THREE.Color(0xFFEB3B), // Yellow - Caution zones

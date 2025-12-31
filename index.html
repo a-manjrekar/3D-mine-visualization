@@ -56,8 +56,59 @@
         <span class="follow-icon">📹</span>
         <span class="follow-text">Follow Vehicle</span>
       </button>
+      <button class="fpv-btn" id="fpv-vehicle">
+        <span class="fpv-icon">👁️</span>
+        <span class="fpv-text">First-Person View</span>
+      </button>
     </div>
     
+    <!-- FPV Overlay (First-Person View) -->
+    <div id="fpv-overlay" class="fpv-overlay hidden">
+      <div class="fpv-header">
+        <div class="fpv-title">
+          <span class="fpv-icon-large">🚛</span>
+          <span>LIVE CABIN VIEW</span>
+        </div>
+        <button class="fpv-close-btn" id="fpv-close">✕ Exit</button>
+      </div>
+      <div class="fpv-info">
+        <div class="fpv-info-item">
+          <span class="fpv-label">Vehicle:</span>
+          <span class="fpv-value" id="fpv-vehicle-id">--</span>
+        </div>
+        <div class="fpv-info-item">
+          <span class="fpv-label">Speed:</span>
+          <span class="fpv-value" id="fpv-speed">-- km/h</span>
+        </div>
+        <div class="fpv-info-item">
+          <span class="fpv-label">Status:</span>
+          <span class="fpv-value" id="fpv-status">--</span>
+        </div>
+      </div>
+      <div class="fpv-frame">
+        <!-- Sample underground truck video feed (YouTube embed) -->
+        <iframe 
+          id="fpv-video" 
+          class="fpv-video"
+          src="" 
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen>
+        </iframe>
+        <div class="fpv-video-overlay"></div>
+        <div class="fpv-crosshair"></div>
+        <div class="fpv-corner fpv-corner-tl"></div>
+        <div class="fpv-corner fpv-corner-tr"></div>
+        <div class="fpv-corner fpv-corner-bl"></div>
+        <div class="fpv-corner fpv-corner-br"></div>
+        <div class="fpv-rec-indicator">
+          <span class="rec-dot"></span>
+          <span>REC</span>
+        </div>
+        <div class="fpv-timestamp" id="fpv-timestamp"></div>
+      </div>
+    </div>
+
     <!-- Loading Indicator -->
     <div id="loading-indicator" class="loading-panel">
       <div class="spinner"></div>
@@ -74,7 +125,88 @@
       <div class="search-results" id="search-results"></div>
     </div>
 
-    <!-- Legend Panel -->
+    <!-- Vehicle Filter Panel (Bottom Left) -->
+    <div id="vehicle-filter-panel" class="vehicle-filter-panel">
+      <div class="panel-header">
+        <span class="panel-title">🚛 Vehicle Filter</span>
+        <button class="toggle-btn" id="toggle-filter">−</button>
+      </div>
+      <div class="filter-content" id="filter-content">
+        <!-- Filter by Type -->
+        <div class="filter-section">
+          <div class="filter-section-title">By Type</div>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-dump-truck" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🚛 Dump Trucks</span>
+            <span class="filter-count" id="count-dump-truck">0</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-loader" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🏗️ Loaders</span>
+            <span class="filter-count" id="count-loader">0</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-haul-truck" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🚚 Haul Trucks</span>
+            <span class="filter-count" id="count-haul-truck">0</span>
+          </label>
+        </div>
+        
+        <!-- Filter by Status -->
+        <div class="filter-section">
+          <div class="filter-section-title">By Status</div>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-moving" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🟢 Moving</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-idle" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🟡 Idle</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-loading" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🔵 Loading</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-maintenance" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">🔴 Maintenance</span>
+          </label>
+        </div>
+        
+        <!-- Filter by Group -->
+        <div class="filter-section">
+          <div class="filter-section-title">By Group</div>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-hauling" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">Hauling</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-loading-group" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">Loading</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="filter-transport" checked>
+            <span class="checkmark"></span>
+            <span class="filter-label">Transport</span>
+          </label>
+        </div>
+        
+        <button class="filter-apply-btn" id="apply-filters">Apply Filters</button>
+        <button class="filter-reset-btn" id="reset-filters">Reset All</button>
+      </div>
+    </div>
+    
+    <!-- Legend Panel (REMOVED) -->
+    <!--
     <div id="legend-panel" class="legend-panel">
       <div class="panel-header">
         <span class="panel-title">🎨 Region Legend</span>
@@ -84,21 +216,14 @@
         <div class="legend-item"><span class="legend-color" style="background: #4CAF50;"></span><span>Entry Area</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #FF9800;"></span><span>Loading Zone</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #F44336;"></span><span>Extraction Area</span></div>
-        <div class="legend-item"><span class="legend-color" style="background: #00BCD4;"></span><span>Ventilation Shaft</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #00BCD4;"></span><span>Service Tunnel</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #9C27B0;"></span><span>Deep Tunnels</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #2196F3;"></span><span>Storage/Transit</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #FFEB3B;"></span><span>Caution Zones</span></div>
         <div class="legend-item"><span class="legend-color" style="background: #795548;"></span><span>Rock Face Areas</span></div>
       </div>
     </div>
-
-    <!-- Mini-map Container -->
-    <div id="minimap-container" class="minimap-container">
-      <div class="minimap-header">
-        <span>🗺️ Overview</span>
-      </div>
-      <canvas id="minimap-canvas"></canvas>
-    </div>
+    -->
 
     <!-- Location Panel -->
     <div id="location-panel" class="location-panel">
@@ -118,6 +243,10 @@
       <div class="help-item">🖱️ Right: Pan</div>
       <div class="help-item">🖱️ Wheel: Zoom</div>
       <div class="help-item">📍 Click markers to zoom</div>
+      <button class="trails-btn" id="toggle-trails">
+        <span class="trails-icon">〰️</span>
+        <span class="trails-text">Show Trails</span>
+      </button>
     </div>
   </div>
   

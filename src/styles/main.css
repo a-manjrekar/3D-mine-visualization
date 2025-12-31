@@ -536,9 +536,10 @@ html, body {
 }
 
 /* ============================================
-   Legend Panel - Color Regions
+   Legend Panel - Color Regions (HIDDEN)
    ============================================ */
 .legend-panel {
+  display: none;
   position: absolute;
   top: 70px;
   left: 20px;
@@ -576,9 +577,10 @@ html, body {
 }
 
 /* ============================================
-   Mini-map Container
+   Mini-map Container (HIDDEN)
    ============================================ */
 .minimap-container {
+  display: none;
   position: absolute;
   bottom: 20px;
   left: 20px;
@@ -641,4 +643,518 @@ html, body {
 
 .follow-icon {
   font-size: 14px;
+}
+
+/* ============================================
+   First-Person View Button
+   ============================================ */
+.fpv-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  background: rgba(255, 170, 0, 0.3);
+  border: 1px solid rgba(255, 170, 0, 0.5);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fpv-btn:hover {
+  background: rgba(255, 170, 0, 0.5);
+}
+
+.fpv-btn.active {
+  background: rgba(255, 100, 0, 0.5);
+  border-color: #ff6600;
+}
+
+.fpv-icon {
+  font-size: 14px;
+}
+
+/* ============================================
+   FPV Overlay (First-Person View)
+   ============================================ */
+.fpv-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.fpv-overlay.hidden {
+  display: none;
+}
+
+.fpv-header {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 100, 0, 0.6);
+  pointer-events: auto;
+}
+
+.fpv-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ff6600;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.fpv-icon-large {
+  font-size: 24px;
+}
+
+.fpv-close-btn {
+  padding: 8px 16px;
+  background: rgba(255, 0, 0, 0.4);
+  border: 1px solid #ff4444;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fpv-close-btn:hover {
+  background: rgba(255, 0, 0, 0.6);
+}
+
+.fpv-info {
+  position: absolute;
+  bottom: 80px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.fpv-info-item {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.fpv-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.fpv-value {
+  color: #00ff88;
+  font-weight: 600;
+}
+
+/* FPV Frame Overlay - Camera frame effect */
+.fpv-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 70%;
+  border: 3px solid rgba(255, 100, 0, 0.4);
+  border-radius: 8px;
+  pointer-events: none;
+  overflow: hidden;
+  background: #000;
+}
+
+/* FPV Video feed */
+.fpv-video {
+  position: absolute;
+  top: -60%;
+  left: -10%;
+  width: 120%;
+  height: 220%;
+  border: none;
+  pointer-events: none;
+}
+
+/* Video overlay for camera effect */
+.fpv-video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.3) 0%,
+    transparent 20%,
+    transparent 80%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  pointer-events: none;
+}
+
+/* REC indicator */
+.fpv-rec-indicator {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  color: #ff3333;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  background: #ff3333;
+  border-radius: 50%;
+  animation: rec-blink 1s infinite;
+}
+
+@keyframes rec-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+/* Timestamp display */
+.fpv-timestamp {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.fpv-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+}
+
+.fpv-crosshair::before,
+.fpv-crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 100, 0, 0.6);
+}
+
+.fpv-crosshair::before {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.fpv-crosshair::after {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+.fpv-corner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-color: rgba(255, 100, 0, 0.8);
+  border-style: solid;
+  border-width: 0;
+}
+
+.fpv-corner-tl {
+  top: 0;
+  left: 0;
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+
+.fpv-corner-tr {
+  top: 0;
+  right: 0;
+  border-top-width: 3px;
+  border-right-width: 3px;
+}
+
+.fpv-corner-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+}
+
+.fpv-corner-br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+}
+
+/* ============================================
+   Trails Toggle Button
+   ============================================ */
+.trails-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 255, 136, 0.2);
+  border: 1px solid rgba(0, 255, 136, 0.4);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+
+.trails-btn:hover {
+  background: rgba(0, 255, 136, 0.4);
+}
+
+.trails-btn.active {
+  background: rgba(0, 255, 136, 0.5);
+  border-color: #00ff88;
+}
+
+.trails-icon {
+  font-size: 12px;
+}
+
+/* ============================================
+   Vehicle Filter Panel
+   ============================================ */
+.vehicle-filter-panel {
+  position: absolute;
+  top: 70px;
+  left: 20px;
+  min-width: 200px;
+  max-width: 240px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.filter-content {
+  padding: 12px 14px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.filter-content.collapsed {
+  display: none;
+}
+
+.filter-section {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filter-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 8px;
+}
+
+.filter-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-checkbox:hover {
+  color: #00aaff;
+}
+
+.filter-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.filter-checkbox .checkmark {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.filter-checkbox input[type="checkbox"]:checked + .checkmark {
+  background: #00aaff;
+  border-color: #00aaff;
+}
+
+.filter-checkbox input[type="checkbox"]:checked + .checkmark::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.filter-label {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.filter-count {
+  padding: 2px 8px;
+  background: rgba(0, 170, 255, 0.3);
+  border-radius: 10px;
+  font-size: 10px;
+  color: #00aaff;
+  font-weight: 600;
+}
+
+.filter-apply-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(0, 170, 255, 0.4);
+  border: 1px solid rgba(0, 170, 255, 0.6);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+
+.filter-apply-btn:hover {
+  background: rgba(0, 170, 255, 0.6);
+}
+
+.filter-reset-btn {
+  width: 100%;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-reset-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* ============================================
+   Multi-Level Selector Panel (HIDDEN)
+   ============================================ */
+.level-selector-panel {
+  display: none;
+  position: absolute;
+  top: 260px;
+  right: 20px;
+  min-width: 200px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.level-content {
+  padding: 8px;
+}
+
+.level-content.collapsed {
+  display: none;
+}
+
+.level-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.level-item:hover {
+  background: rgba(0, 170, 255, 0.2);
+  border-color: rgba(0, 170, 255, 0.4);
+}
+
+.level-item.active {
+  background: rgba(0, 170, 255, 0.3);
+  border-color: #00aaff;
+}
+
+.level-icon {
+  font-size: 16px;
+}
+
+.level-name {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.level-vehicles {
+  padding: 2px 8px;
+  background: rgba(0, 255, 136, 0.3);
+  border-radius: 10px;
+  font-size: 10px;
+  color: #00ff88;
+  font-weight: 600;
 }

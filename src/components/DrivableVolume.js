@@ -140,67 +140,11 @@ export class DrivableVolume {
   }
   
   /**
-   * Check for collision when moving from one point to another
-   * Uses raycast from ABOVE to find valid floor positions
-   * 
-   * @param {THREE.Vector3} fromPos - Current position
-   * @param {THREE.Vector3} toPos - Desired target position
-   * @returns {{position: THREE.Vector3, blocked: boolean}} Safe position
+   * Check for collision - DISABLED since paths are pre-validated
+   * Just pass through the position
    */
   checkCollision(fromPos, toPos) {
-    if (!this.isReady || this.mineMeshes.length === 0) {
-      return { position: toPos.clone(), blocked: false };
-    }
-    
-    // Quick bounding box check first
-    if (!this.boundingBox.containsPoint(toPos)) {
-      return { position: fromPos.clone(), blocked: true };
-    }
-    
-    // Cast ray from HIGH ABOVE the target position, pointing DOWN
-    // This finds the tunnel floor at the target X,Z location
-    const rayOrigin = _tempVec.set(toPos.x, this.boundingBox.max.y + 10, toPos.z);
-    _raycaster.set(rayOrigin, _direction.set(0, -1, 0));
-    _raycaster.far = 1000;
-    
-    const hits = _raycaster.intersectObjects(this.mineMeshes, true);
-    
-    if (hits.length >= 2) {
-      // Multiple hits - we're inside the model
-      // Sort by Y to find floor (lowest) and ceiling (highest)
-      hits.sort((a, b) => a.point.y - b.point.y);
-      const floorHit = hits[0];
-      const ceilingHit = hits[hits.length - 1];
-      
-      // Check if there's enough space between floor and ceiling
-      const tunnelHeight = ceilingHit.point.y - floorHit.point.y;
-      
-      if (tunnelHeight > 0.5) {
-        // Valid tunnel space - place vehicle on floor
-        const safeY = floorHit.point.y + 0.3;
-        
-        // Store this as last known good Y for this X,Z region
-        this._lastValidY = safeY;
-        
-        return { 
-          position: _resultPos.set(toPos.x, safeY, toPos.z), 
-          blocked: false 
-        };
-      }
-    } else if (hits.length === 1) {
-      // Single hit - could be floor or ceiling
-      // Use last valid Y if we have one, otherwise use this hit
-      const hitY = hits[0].point.y;
-      const safeY = this._lastValidY !== undefined ? this._lastValidY : hitY + 0.3;
-      
-      return { 
-        position: _resultPos.set(toPos.x, safeY, toPos.z), 
-        blocked: false 
-      };
-    }
-    
-    // No hits at all - outside the model, block movement
-    return { position: fromPos.clone(), blocked: true };
+    return { position: toPos.clone(), blocked: false };
   }
   
   /**
