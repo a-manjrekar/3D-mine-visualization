@@ -42,6 +42,20 @@ export class Experience {
     this._raycaster = new THREE.Raycaster();
     this._mouse = new THREE.Vector2();
     
+    // Follow mode state
+    this.followMode = {
+      active: false,
+      vehicleId: null,
+      offset: new THREE.Vector3(8, 6, 8)
+    };
+    
+    // Minimap state
+    this.minimap = {
+      renderer: null,
+      camera: null,
+      scene: null
+    };
+    
     // Event system for inter-component communication
     this.events = new EventBus();
     
@@ -166,6 +180,8 @@ export class Experience {
     // Vehicle data updates from WebSocket
     this.events.on('vehicle:update', (data) => {
       this.vehicleManager.updateVehicle(data);
+      // Update UI controller's vehicle data for search
+      this.ui.updateVehicleData(data.id, data);
     });
     
     // Connection status changes
@@ -186,15 +202,33 @@ export class Experience {
     // Vehicle deselection
     this.events.on('vehicle:deselected', () => {
       this.ui.hideVehicleInfo();
+      this.stopFollowMode();
+    });
+    
+    // Vehicle search - find and zoom to vehicle
+    this.events.on('vehicle:search', (vehicleId) => {
+      this.searchAndSelectVehicle(vehicleId);
+    });
+    
+    // Follow mode start
+    this.events.on('vehicle:follow:start', (vehicleId) => {
+      this.startFollowMode(vehicleId);
+    });
+    
+    // Follow mode stop
+    this.events.on('vehicle:follow:stop', () => {
+      this.stopFollowMode();
     });
     
     // Location marker clicked - zoom to location
     this.events.on('location:selected', (locationData) => {
+      this.stopFollowMode();
       this.zoomToLocation(locationData);
     });
     
     // UI location button clicked
     this.events.on('location:goto', (locationId) => {
+      this.stopFollowMode();
       const position = this.locationMarkers.getLocationPosition(locationId);
       if (position) {
         this.zoomToLocation({ id: locationId, position });
@@ -203,6 +237,7 @@ export class Experience {
     
     // Reset view button clicked
     this.events.on('camera:reset', () => {
+      this.stopFollowMode();
       if (this.initialCameraState) {
         this.camera.moveTo(
           this.initialCameraState.position,
@@ -256,6 +291,10 @@ export class Experience {
       // Update UI with available locations
       this.ui.setupLocationButtons(this.locationMarkers.getLocations());
     }
+    
+    // Initialize minimap after mine is loaded
+    this.initMinimap();
+    this.updateMinimapBounds();
   }
   
   /**
@@ -336,6 +375,179 @@ export class Experience {
   }
   
   /**
+   * Search for a vehicle and zoom to it
+   */
+  searchAndSelectVehicle(vehicleId) {
+    const vehicle = this.vehicleManager.vehicles.get(vehicleId);
+    if (!vehicle) {
+      console.warn(`Vehicle not found: ${vehicleId}`);
+      return;
+    }
+    
+    // Select the vehicle
+    this.vehicleManager.selectVehicle(vehicleId);
+    
+    // Get vehicle position
+    const position = vehicle.mesh.position.clone();
+    
+    // Zoom to vehicle
+    const cameraOffset = {
+      x: position.x + 10,
+      y: position.y + 8,
+      z: position.z + 10
+    };
+    
+    this.camera.moveTo(cameraOffset, position, 1200);
+    
+    console.log(`Found and zoomed to vehicle: ${vehicleId}`);
+  }
+  
+  /**
+   * Start following a vehicle
+   */
+  startFollowMode(vehicleId) {
+    const vehicle = this.vehicleManager.vehicles.get(vehicleId);
+    if (!vehicle) {
+      console.warn(`Cannot follow vehicle: ${vehicleId} - not found`);
+      return;
+    }
+    
+    this.followMode.active = true;
+    this.followMode.vehicleId = vehicleId;
+    
+    // Disable orbit controls while following
+    this.camera.controls.enabled = false;
+    
+    console.log(`Following vehicle: ${vehicleId}`);
+  }
+  
+  /**
+   * Stop following a vehicle
+   */
+  stopFollowMode() {
+    if (!this.followMode.active) return;
+    
+    this.followMode.active = false;
+    this.followMode.vehicleId = null;
+    
+    // Re-enable orbit controls
+    this.camera.controls.enabled = true;
+    
+    console.log('Follow mode stopped');
+  }
+  
+  /**
+   * Update camera to follow vehicle
+   */
+  updateFollowCamera(deltaTime) {
+    if (!this.followMode.active || !this.followMode.vehicleId) return;
+    
+    const vehicle = this.vehicleManager.vehicles.get(this.followMode.vehicleId);
+    if (!vehicle) {
+      this.stopFollowMode();
+      return;
+    }
+    
+    // Get vehicle position and heading
+    const vehiclePos = vehicle.mesh.position;
+    const heading = vehicle.currentHeading || 0;
+    
+    // Calculate camera position behind and above the vehicle
+    const headingRad = heading * Math.PI / 180;
+    const offset = this.followMode.offset;
+    
+    // Position camera behind vehicle based on heading
+    const targetCamPos = new THREE.Vector3(
+      vehiclePos.x - Math.sin(headingRad) * offset.z + Math.cos(headingRad) * offset.x * 0.3,
+      vehiclePos.y + offset.y,
+      vehiclePos.z - Math.cos(headingRad) * offset.z - Math.sin(headingRad) * offset.x * 0.3
+    );
+    
+    // Smooth camera follow using lerp
+    const lerpFactor = 1 - Math.pow(0.01, deltaTime);
+    this.camera.instance.position.lerp(targetCamPos, lerpFactor);
+    
+    // Look at a point slightly ahead of the vehicle
+    const lookAtPos = new THREE.Vector3(
+      vehiclePos.x + Math.sin(headingRad) * 3,
+      vehiclePos.y + 1,
+      vehiclePos.z + Math.cos(headingRad) * 3
+    );
+    
+    this.camera.controls.target.lerp(lookAtPos, lerpFactor);
+    this.camera.controls.update();
+  }
+  
+  /**
+   * Initialize minimap renderer
+   */
+  initMinimap() {
+    const canvas = document.getElementById('minimap-canvas');
+    if (!canvas) return;
+    
+    // Create minimap renderer
+    this.minimap.renderer = new THREE.WebGLRenderer({ 
+      canvas, 
+      antialias: false,
+      alpha: true 
+    });
+    this.minimap.renderer.setSize(180, 150);
+    this.minimap.renderer.setPixelRatio(1); // Lower quality for performance
+    
+    // Create orthographic camera for top-down view
+    const aspect = 180 / 150;
+    const frustumSize = 200; // Increased to show full map
+    this.minimap.camera = new THREE.OrthographicCamera(
+      -frustumSize * aspect / 2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      -frustumSize / 2,
+      0.1,
+      1000
+    );
+    
+    // Position camera above the mine looking down
+    this.minimap.camera.position.set(0, 100, 0);
+    this.minimap.camera.lookAt(0, 0, 0);
+    this.minimap.camera.up.set(0, 0, -1);
+    
+    console.log('Minimap initialized');
+  }
+  
+  /**
+   * Update minimap camera position based on mine bounds
+   */
+  updateMinimapBounds() {
+    if (!this.minimap.camera || !this.mineEnvironment.bounds) return;
+    
+    const bounds = this.mineEnvironment.bounds;
+    const center = this.mineEnvironment.center;
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+    
+    // Set camera to cover the mine area with padding
+    const maxSize = Math.max(size.x, size.z) * 1.1; // Increased to show full map with padding
+    const aspect = 180 / 150;
+    
+    this.minimap.camera.left = -maxSize * aspect / 2;
+    this.minimap.camera.right = maxSize * aspect / 2;
+    this.minimap.camera.top = maxSize / 2;
+    this.minimap.camera.bottom = -maxSize / 2;
+    this.minimap.camera.position.set(center.x, center.y + 100, center.z);
+    this.minimap.camera.lookAt(center.x, center.y, center.z);
+    this.minimap.camera.updateProjectionMatrix();
+  }
+  
+  /**
+   * Render minimap
+   */
+  renderMinimap() {
+    if (!this.minimap.renderer || !this.minimap.camera) return;
+    
+    this.minimap.renderer.render(this.scene, this.minimap.camera);
+  }
+  
+  /**
    * Start the render loop
    */
   start() {
@@ -361,6 +573,9 @@ export class Experience {
     const deltaTime = this.clock.getDelta();
     const elapsedTime = this.clock.getElapsedTime();
     
+    // Update follow camera if active
+    this.updateFollowCamera(deltaTime);
+    
     // Update subsystems
     this.camera.update(deltaTime);
     this.vehicleManager.update(deltaTime);
@@ -368,6 +583,11 @@ export class Experience {
     
     // Render the scene
     this.renderer.render(this.scene, this.camera.instance);
+    
+    // Render minimap (lower frequency for performance)
+    if (Math.floor(elapsedTime * 10) % 2 === 0) {
+      this.renderMinimap();
+    }
   }
   
   /**
@@ -394,6 +614,9 @@ export class Experience {
     
     // Disconnect WebSocket
     this.webSocket?.disconnect();
+    
+    // Dispose minimap
+    this.minimap.renderer?.dispose();
     
     // Dispose Three.js resources
     this.vehicleManager?.dispose();

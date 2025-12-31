@@ -98,7 +98,8 @@ export class MineEnvironment {
   
   /**
    * Configure materials for underground appearance with transparency
-   * Applies different colors to different regions of the mine
+   * Applies different colors to different regions of the mine using vertex colors
+   * This ensures proper color boundaries with no overlapping
    */
   configureMaterials() {
     // First pass: calculate bounds to determine regions
@@ -125,15 +126,11 @@ export class MineEnvironment {
     
     this.model.traverse((child) => {
       if (child.isMesh) {
-        // Compute bounding box in world space for accurate position
-        child.geometry.computeBoundingBox();
-        const meshBox = child.geometry.boundingBox.clone();
-        meshBox.applyMatrix4(child.matrixWorld);
-        const meshCenter = new THREE.Vector3();
-        meshBox.getCenter(meshCenter);
+        // Update world matrix to get accurate vertex positions
+        child.updateMatrixWorld(true);
         
-        // Determine region based on mesh center position
-        const regionColor = this.getRegionColor(meshCenter, minBounds, size, regionColors);
+        // Apply vertex colors for per-vertex region coloring (no overlap)
+        this.applyVertexColors(child, minBounds, size, regionColors);
         
         // Handle material (can be single or array)
         const materials = Array.isArray(child.material) 
@@ -144,16 +141,15 @@ export class MineEnvironment {
           // Clone material to avoid affecting other meshes
           const newMaterial = material.clone();
           
-          // Enable transparency with 40% opacity for vehicle visibility
+          // Enable vertex colors for proper region coloring
+          newMaterial.vertexColors = true;
+          
+          // Enable transparency with 50% opacity for vehicle visibility
           newMaterial.transparent = true;
           newMaterial.opacity = 0.5;
           
-          // Apply region color
-          if (newMaterial.color) {
-            newMaterial.color.copy(regionColor);
-          } else {
-            newMaterial.color = regionColor.clone();
-          }
+          // Set base color to white so vertex colors show properly
+          newMaterial.color = new THREE.Color(0xffffff);
           
           // Ensure proper depth handling for transparent objects
           newMaterial.depthWrite = true;
@@ -172,9 +168,9 @@ export class MineEnvironment {
             newMaterial.roughness = 0.85;
           }
           
-          // Add slight emissive for visibility in dark areas
+          // Disable emissive (vertex colors handle brightness)
           if (newMaterial.emissive) {
-            newMaterial.emissive.copy(regionColor).multiplyScalar(0.1);
+            newMaterial.emissive.setHex(0x000000);
           }
           
           // Replace material
@@ -194,7 +190,43 @@ export class MineEnvironment {
       }
     });
     
-    console.log('Mine materials configured with regional colors');
+    console.log('Mine materials configured with vertex-based regional colors');
+  }
+  
+  /**
+   * Apply vertex colors to a mesh based on each vertex's world position
+   * This ensures clean color boundaries with no overlapping
+   */
+  applyVertexColors(mesh, minBounds, size, colors) {
+    const geometry = mesh.geometry;
+    const positions = geometry.attributes.position;
+    const vertexCount = positions.count;
+    
+    // Create color attribute array (RGB for each vertex)
+    const colorArray = new Float32Array(vertexCount * 3);
+    
+    // Temp vectors for position calculation
+    const localPos = new THREE.Vector3();
+    const worldPos = new THREE.Vector3();
+    
+    for (let i = 0; i < vertexCount; i++) {
+      // Get vertex position in local space
+      localPos.fromBufferAttribute(positions, i);
+      
+      // Transform to world space
+      worldPos.copy(localPos).applyMatrix4(mesh.matrixWorld);
+      
+      // Calculate region color based on world position
+      const color = this.getRegionColor(worldPos, minBounds, size, colors);
+      
+      // Store RGB values in color array
+      colorArray[i * 3] = color.r;
+      colorArray[i * 3 + 1] = color.g;
+      colorArray[i * 3 + 2] = color.b;
+    }
+    
+    // Add or update color attribute
+    geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
   }
   
   /**

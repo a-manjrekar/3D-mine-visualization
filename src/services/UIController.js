@@ -12,6 +12,13 @@ export class UIController {
     // Track active location
     this.activeLocationId = null;
     
+    // Track follow mode
+    this.isFollowingVehicle = false;
+    this.followedVehicleId = null;
+    
+    // Track all vehicles for search
+    this.vehicleData = new Map();
+    
     // Cache DOM elements
     this.elements = {
       connectionStatus: document.getElementById('connection-status'),
@@ -25,7 +32,17 @@ export class UIController {
       locationPanel: document.getElementById('location-panel'),
       locationList: document.getElementById('location-list'),
       toggleLocations: document.getElementById('toggle-locations'),
-      resetView: document.getElementById('reset-view')
+      resetView: document.getElementById('reset-view'),
+      // New elements
+      legendPanel: document.getElementById('legend-panel'),
+      legendList: document.getElementById('legend-list'),
+      toggleLegend: document.getElementById('toggle-legend'),
+      searchPanel: document.getElementById('search-panel'),
+      searchInput: document.getElementById('vehicle-search'),
+      searchClear: document.getElementById('search-clear'),
+      searchResults: document.getElementById('search-results'),
+      followBtn: document.getElementById('follow-vehicle'),
+      minimapCanvas: document.getElementById('minimap-canvas')
     };
     
     // Setup event listeners
@@ -41,6 +58,7 @@ export class UIController {
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
         this.hideVehicleInfo();
+        this.stopFollowMode();
         this.events?.emit('vehicle:deselected');
       });
     }
@@ -52,12 +70,67 @@ export class UIController {
       });
     }
     
+    // Toggle legend panel collapse
+    if (this.elements.toggleLegend) {
+      this.elements.toggleLegend.addEventListener('click', () => {
+        this.toggleLegendPanel();
+      });
+    }
+    
     // Reset view button
     if (this.elements.resetView) {
       this.elements.resetView.addEventListener('click', () => {
+        this.stopFollowMode();
         this.events?.emit('camera:reset');
         this.clearActiveLocation();
       });
+    }
+    
+    // Follow vehicle button
+    if (this.elements.followBtn) {
+      this.elements.followBtn.addEventListener('click', () => {
+        this.toggleFollowMode();
+      });
+    }
+    
+    // Search input
+    if (this.elements.searchInput) {
+      this.elements.searchInput.addEventListener('input', (e) => {
+        this.handleSearchInput(e.target.value);
+      });
+      
+      this.elements.searchInput.addEventListener('focus', () => {
+        if (this.elements.searchInput.value.trim()) {
+          this.handleSearchInput(this.elements.searchInput.value);
+        }
+      });
+    }
+    
+    // Search clear button
+    if (this.elements.searchClear) {
+      this.elements.searchClear.addEventListener('click', () => {
+        this.clearSearch();
+      });
+    }
+    
+    // Click outside to close search results
+    document.addEventListener('click', (e) => {
+      if (!this.elements.searchPanel?.contains(e.target)) {
+        this.elements.searchResults.innerHTML = '';
+      }
+    });
+  }
+  
+  /**
+   * Toggle legend panel expand/collapse
+   */
+  toggleLegendPanel() {
+    const list = this.elements.legendList;
+    const btn = this.elements.toggleLegend;
+    
+    if (list && btn) {
+      list.classList.toggle('collapsed');
+      btn.textContent = list.classList.contains('collapsed') ? '+' : '−';
     }
   }
   
@@ -214,6 +287,9 @@ export class UIController {
     setTextContent('.vehicle-speed', `${data.speed} km/h`);
     setTextContent('.vehicle-status', this.formatStatus(data.status));
     
+    // Set followed vehicle for follow mode
+    this.setFollowedVehicle(data.id);
+    
     // Show panel
     panel.classList.remove('hidden');
   }
@@ -291,5 +367,130 @@ export class UIController {
       'offline': 'Offline'
     };
     return statusMap[status] || status;
+  }
+  
+  /**
+   * Handle search input
+   */
+  handleSearchInput(query) {
+    const clearBtn = this.elements.searchClear;
+    const resultsContainer = this.elements.searchResults;
+    
+    // Show/hide clear button
+    if (clearBtn) {
+      clearBtn.classList.toggle('visible', query.length > 0);
+    }
+    
+    if (!resultsContainer) return;
+    
+    // Clear results if no query
+    if (!query.trim()) {
+      resultsContainer.innerHTML = '';
+      return;
+    }
+    
+    // Search vehicles
+    const searchTerm = query.toLowerCase();
+    const matches = [];
+    
+    this.vehicleData.forEach((data, id) => {
+      if (id.toLowerCase().includes(searchTerm) || 
+          data.type?.toLowerCase().includes(searchTerm)) {
+        matches.push({ id, ...data });
+      }
+    });
+    
+    // Render results
+    if (matches.length === 0) {
+      resultsContainer.innerHTML = '<div class="search-no-results">No vehicles found</div>';
+    } else {
+      resultsContainer.innerHTML = matches.slice(0, 5).map(vehicle => `
+        <div class="search-result-item" data-vehicle-id="${vehicle.id}">
+          <span class="search-result-id">${vehicle.id}</span>
+          <span class="search-result-type">${this.formatVehicleType(vehicle.type || 'unknown')}</span>
+        </div>
+      `).join('');
+      
+      // Add click listeners
+      resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const vehicleId = item.dataset.vehicleId;
+          this.events?.emit('vehicle:search', vehicleId);
+          this.clearSearch();
+        });
+      });
+    }
+  }
+  
+  /**
+   * Clear search input and results
+   */
+  clearSearch() {
+    if (this.elements.searchInput) {
+      this.elements.searchInput.value = '';
+    }
+    if (this.elements.searchClear) {
+      this.elements.searchClear.classList.remove('visible');
+    }
+    if (this.elements.searchResults) {
+      this.elements.searchResults.innerHTML = '';
+    }
+  }
+  
+  /**
+   * Update vehicle data for search
+   */
+  updateVehicleData(id, data) {
+    this.vehicleData.set(id, data);
+  }
+  
+  /**
+   * Remove vehicle from search data
+   */
+  removeVehicleData(id) {
+    this.vehicleData.delete(id);
+  }
+  
+  /**
+   * Toggle follow mode
+   */
+  toggleFollowMode() {
+    if (this.isFollowingVehicle) {
+      this.stopFollowMode();
+    } else {
+      this.startFollowMode();
+    }
+  }
+  
+  /**
+   * Start following the selected vehicle
+   */
+  startFollowMode() {
+    if (!this.followedVehicleId) return;
+    
+    this.isFollowingVehicle = true;
+    this.elements.followBtn?.classList.add('active');
+    this.events?.emit('vehicle:follow:start', this.followedVehicleId);
+  }
+  
+  /**
+   * Stop following vehicle
+   */
+  stopFollowMode() {
+    this.isFollowingVehicle = false;
+    this.elements.followBtn?.classList.remove('active');
+    this.events?.emit('vehicle:follow:stop');
+  }
+  
+  /**
+   * Set the followed vehicle ID (called when vehicle is selected)
+   */
+  setFollowedVehicle(vehicleId) {
+    this.followedVehicleId = vehicleId;
+    
+    // If already in follow mode, switch to new vehicle
+    if (this.isFollowingVehicle) {
+      this.events?.emit('vehicle:follow:start', vehicleId);
+    }
   }
 }

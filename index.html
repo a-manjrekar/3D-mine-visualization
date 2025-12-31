@@ -52,6 +52,10 @@
           <span class="value vehicle-status">--</span>
         </div>
       </div>
+      <button class="follow-btn" id="follow-vehicle">
+        <span class="follow-icon">📹</span>
+        <span class="follow-text">Follow Vehicle</span>
+      </button>
     </div>
     
     <!-- Loading Indicator -->
@@ -60,6 +64,42 @@
       <span class="loading-text">Loading mine environment...</span>
     </div>
     
+    <!-- Search Vehicle Panel -->
+    <div id="search-panel" class="search-panel">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="vehicle-search" placeholder="Search vehicle ID..." />
+        <button class="search-clear-btn" id="search-clear">×</button>
+      </div>
+      <div class="search-results" id="search-results"></div>
+    </div>
+
+    <!-- Legend Panel -->
+    <div id="legend-panel" class="legend-panel">
+      <div class="panel-header">
+        <span class="panel-title">🎨 Region Legend</span>
+        <button class="toggle-btn" id="toggle-legend">−</button>
+      </div>
+      <div class="legend-list" id="legend-list">
+        <div class="legend-item"><span class="legend-color" style="background: #4CAF50;"></span><span>Entry Area</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #FF9800;"></span><span>Loading Zone</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #F44336;"></span><span>Extraction Area</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #00BCD4;"></span><span>Ventilation Shaft</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #9C27B0;"></span><span>Deep Tunnels</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #2196F3;"></span><span>Storage/Transit</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #FFEB3B;"></span><span>Caution Zones</span></div>
+        <div class="legend-item"><span class="legend-color" style="background: #795548;"></span><span>Rock Face Areas</span></div>
+      </div>
+    </div>
+
+    <!-- Mini-map Container -->
+    <div id="minimap-container" class="minimap-container">
+      <div class="minimap-header">
+        <span>🗺️ Overview</span>
+      </div>
+      <canvas id="minimap-canvas"></canvas>
+    </div>
+
     <!-- Location Panel -->
     <div id="location-panel" class="location-panel">
       <div class="panel-header">
