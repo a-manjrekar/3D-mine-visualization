@@ -234,8 +234,8 @@ export class Experience {
     });
     
     // Vehicle selection
-    this.events.on('vehicle:selected', (vehicleData) => {
-      this.ui.showVehicleInfo(vehicleData);
+    this.events.on('vehicle:selected', (vehicleData, tripHistory) => {
+      this.ui.showVehicleInfo(vehicleData, tripHistory);
     });
     
     // Vehicle deselection

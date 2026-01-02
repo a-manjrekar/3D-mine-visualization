@@ -605,15 +605,22 @@ export class VehicleAPIService {
     // Move to next waypoint when segment complete
     if (vehicle.pathProgress >= 1.0) {
       vehicle.pathProgress = 0;
+      const prevWaypointIdx = vehicle.currentWaypointIndex;
       vehicle.currentWaypointIndex += vehicle.pathDirection;
       
       // Reverse direction at ends (stay at valid indices)
       if (vehicle.currentWaypointIndex >= pathLen - 1) {
         vehicle.currentWaypointIndex = pathLen - 1;
         vehicle.pathDirection = -1;
+        // Log trip event - reached end (dump site)
+        vehicle.tripEvents = vehicle.tripEvents || [];
+        vehicle.tripEvents.push({ event: 'dump', time: Date.now() });
       } else if (vehicle.currentWaypointIndex <= 0) {
         vehicle.currentWaypointIndex = 0;
         vehicle.pathDirection = 1;
+        // Log trip event - returned to start (load site)
+        vehicle.tripEvents = vehicle.tripEvents || [];
+        vehicle.tripEvents.push({ event: 'load', time: Date.now() });
       }
     }
     
@@ -659,6 +666,7 @@ export class VehicleAPIService {
       },
       heading: vehicle.heading,
       speed: vehicle.speed,
+      tripEvents: vehicle.tripEvents || [],
       metadata: {
         driver: vehicle.driver,
         fuelLevel: vehicle.fuelLevel,

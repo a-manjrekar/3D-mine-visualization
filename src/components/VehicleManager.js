@@ -193,7 +193,7 @@ export class VehicleManager {
    * Update or create a vehicle from telemetry data
    */
   updateVehicle(data) {
-    const { id, type, position, heading, speed, status } = data;
+    const { id, type, position, heading, speed, status, tripEvents } = data;
     
     // Debug log first few updates
     if (!this._updateCount) this._updateCount = 0;
@@ -209,6 +209,14 @@ export class VehicleManager {
       vehicle.setTargetHeading(heading);
       vehicle.setSpeed(speed);
       vehicle.setStatus(status);
+      
+      // Sync trip events from API
+      if (tripEvents && tripEvents.length > vehicle.tripHistory.length) {
+        // Add new events
+        for (let i = vehicle.tripHistory.length; i < tripEvents.length; i++) {
+          vehicle.tripHistory.push(tripEvents[i]);
+        }
+      }
     } else {
       // Create new vehicle
       console.log(`VehicleManager: Creating new vehicle ${id} at`, position);
@@ -221,7 +229,7 @@ export class VehicleManager {
     // Update selected vehicle info if this is the selected one
     if (id === this.selectedVehicleId) {
       const vehicle = this.vehicles.get(id);
-      this.events?.emit('vehicle:selected', vehicle.getData());
+      this.events?.emit('vehicle:selected', vehicle.getData(), vehicle.tripHistory);
     }
   }
   
@@ -361,7 +369,7 @@ export class VehicleManager {
     if (vehicle) {
       vehicle.setSelected(true);
       this.selectedVehicleId = id;
-      this.events?.emit('vehicle:selected', vehicle.getData());
+      this.events?.emit('vehicle:selected', vehicle.getData(), vehicle.tripHistory);
     }
   }
   

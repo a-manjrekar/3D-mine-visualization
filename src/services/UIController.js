@@ -336,7 +336,7 @@ export class UIController {
   /**
    * Show vehicle info panel
    */
-  showVehicleInfo(data) {
+  showVehicleInfo(data, tripHistory = []) {
     const panel = this.elements.vehicleInfo;
     if (!panel) return;
     
@@ -352,6 +352,25 @@ export class UIController {
     setTextContent('.vehicle-heading', `${data.heading}°`);
     setTextContent('.vehicle-speed', `${data.speed} km/h`);
     setTextContent('.vehicle-status', this.formatStatus(data.status));
+    
+    // Render trip history
+    const tripList = panel.querySelector('#trip-history-list');
+    if (tripList) {
+      if (tripHistory && tripHistory.length > 0) {
+        tripList.innerHTML = tripHistory.slice(-10).reverse().map(e => {
+          const date = new Date(e.time);
+          const timeStr = date.toLocaleTimeString();
+          const icon = e.event === 'start' ? '🚀' : e.event === 'load' ? '📦' : e.event === 'dump' ? '🔽' : e.event === 'stop' ? '🛑' : '📍';
+          return `<div class="trip-history-event">
+            <span class="trip-event-icon">${icon}</span>
+            <span class="trip-event-time">${timeStr}</span>
+            <span class="trip-event-type">${e.event}</span>
+          </div>`;
+        }).join('');
+      } else {
+        tripList.innerHTML = '<div class="trip-history-empty">No trip events yet.</div>';
+      }
+    }
     
     // Set followed vehicle for follow mode
     this.setFollowedVehicle(data.id);

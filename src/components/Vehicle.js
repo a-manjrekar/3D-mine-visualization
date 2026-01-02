@@ -45,14 +45,18 @@ export class Vehicle {
     this.speed = options.speed || 0;
     this.status = options.status || 'idle';
     
-    // Trail state
+    // Trail state (timestamped for history)
     this.trailEnabled = false;
-    this.trailPositions = [];
-    this.maxTrailLength = options.maxTrailLength || 150;
+    this.trailPositions = []; // [{pos: Vector3, t: timestamp}]
+    this.trailTimeWindow = options.trailTimeWindow || 10 * 60 * 1000; // 10 min default
+    this.maxTrailLength = options.maxTrailLength || 500;
     this.trailMesh = null;
     this.trailMaterial = null;
     this.trailUpdateCounter = 0;
     this.trailUpdateInterval = 2; // Update every 2 frames
+    
+    // Trip history log
+    this.tripHistory = [];
     
     // Interpolation settings
     this.positionLerpSpeed = options.interpolationSpeed || 5.0;
@@ -376,7 +380,7 @@ export class Vehicle {
   }
   
   /**
-   * Update trail with current position
+   * Update trail with current position (timestamped for history)
    */
   updateTrail() {
     if (!this.trailEnabled || !this.trailMaterial) return;
@@ -386,20 +390,27 @@ export class Vehicle {
     if (this.trailUpdateCounter < this.trailUpdateInterval) return;
     this.trailUpdateCounter = 0;
     
-    // Add current position to trail
+    // Add current position to trail with timestamp
+    const now = Date.now();
     const pos = this.currentPosition.clone();
     pos.y += 0.3; // Slightly above ground to be visible
     
     // Check if we've moved enough to add a new point
     if (this.trailPositions.length > 0) {
-      const lastPos = this.trailPositions[this.trailPositions.length - 1];
-      const dist = pos.distanceTo(lastPos);
+      const last = this.trailPositions[this.trailPositions.length - 1];
+      const dist = pos.distanceTo(last.pos);
       if (dist < 0.2) return; // Don't add if too close
     }
     
-    this.trailPositions.push(pos.clone());
+    this.trailPositions.push({ pos: pos.clone(), t: now });
     
-    // Limit trail length - remove oldest
+    // Remove points older than time window
+    const cutoff = now - this.trailTimeWindow;
+    while (this.trailPositions.length > 0 && this.trailPositions[0].t < cutoff) {
+      this.trailPositions.shift();
+    }
+    
+    // Also cap by max length
     if (this.trailPositions.length > this.maxTrailLength) {
       this.trailPositions.shift();
     }
@@ -414,7 +425,7 @@ export class Vehicle {
     }
     
     // Create curve from positions
-    const curve = new THREE.CatmullRomCurve3(this.trailPositions);
+    const curve = new THREE.CatmullRomCurve3(this.trailPositions.map(tp => tp.pos));
     
     // Create tube geometry along the curve
     const tubeGeometry = new THREE.TubeGeometry(
@@ -441,6 +452,35 @@ export class Vehicle {
       this.trailMesh.geometry.dispose();
       this.trailMesh = null;
     }
+  }
+  
+  /**
+   * Log a trip event (start, load, dump, stop)
+   */
+  logTripEvent(event, details = {}) {
+    this.tripHistory.push({
+      event,
+      time: Date.now(),
+      position: { 
+        x: this.currentPosition.x.toFixed(2), 
+        y: this.currentPosition.y.toFixed(2), 
+        z: this.currentPosition.z.toFixed(2) 
+      },
+      ...details
+    });
+  }
+  
+  /**
+   * Get trip history summary
+   */
+  getTripSummary() {
+    let trips = 0, loads = 0, dumps = 0;
+    for (const e of this.tripHistory) {
+      if (e.event === 'start') trips++;
+      if (e.event === 'load') loads++;
+      if (e.event === 'dump') dumps++;
+    }
+    return { trips, loads, dumps, totalEvents: this.tripHistory.length };
   }
   
   /**
