@@ -1,0 +1,28 @@
+{
+  "vehicles": [
+    {
+      "type": "dump_truck",
+      "model_path": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+      "display_name": "Dump Truck",
+      "capacity_tons": 25,
+      "icon": "🚛",
+      "color": "#FF6600"
+    },
+    {
+      "type": "loader",
+      "model_path": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+      "display_name": "Wheel Loader",
+      "capacity_tons": 15,
+      "icon": "🏗️",
+      "color": "#00FF66"
+    },
+    {
+      "type": "haul_truck",
+      "model_path": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+      "display_name": "Haul Truck",
+      "capacity_tons": 40,
+      "icon": "🚚",
+      "color": "#0066FF"
+    }
+  ]
+}

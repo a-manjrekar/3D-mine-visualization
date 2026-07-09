@@ -1,0 +1,323 @@
+{
+  "metadata": {
+    "mine_id": "hindustan_3d",
+    "mine_name": "Hindustan 3D Mine",
+    "mine_origin": { "x": 1200, "y": -350, "z": 890 },
+    "last_updated": "2026-07-01T00:00:00Z",
+    "date_range": {
+      "start": "2026-06-01",
+      "end": "2026-07-01"
+    }
+  },
+  "trucks": [
+    {
+      "id": "TRUCK_001",
+      "type": "dump_truck",
+      "driver": "Rajesh Kumar",
+      "catalog": {
+        "model": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+        "color": "#FF6600",
+        "capacity_tons": 25
+      },
+      "history": [
+        {
+          "date": "2026-06-01",
+          "position": { "x": 0, "y": 0, "z": 0 },
+          "heading": 0,
+          "status": "idle",
+          "location_name": "Loading Bay",
+          "fuel_level": 75,
+          "work_hours": 0,
+          "trips": 0,
+          "material_moved_tons": 0,
+          "notes": "Scheduled maintenance"
+        },
+        {
+          "date": "2026-06-10",
+          "position": { "x": 25.5, "y": 5.2, "z": 30.1 },
+          "heading": 45,
+          "status": "moving",
+          "location_name": "Main Corridor",
+          "fuel_level": 50,
+          "work_hours": 8.5,
+          "trips": 12,
+          "material_moved_tons": 300,
+          "notes": "Regular operations"
+        },
+        {
+          "date": "2026-06-20",
+          "position": { "x": 50.2, "y": 8.1, "z": 45.5 },
+          "heading": 90,
+          "status": "idle",
+          "location_name": "Depot",
+          "fuel_level": 85,
+          "work_hours": 2.0,
+          "trips": 2,
+          "material_moved_tons": 50,
+          "notes": "Post-maintenance check"
+        },
+        {
+          "date": "2026-07-01",
+          "position": { "x": 35.8, "y": 6.5, "z": 38.2 },
+          "heading": 135,
+          "status": "moving",
+          "location_name": "Extraction Zone",
+          "fuel_level": 45,
+          "work_hours": 7.5,
+          "trips": 10,
+          "material_moved_tons": 250,
+          "notes": "Operational"
+        }
+      ]
+    },
+    {
+      "id": "TRUCK_002",
+      "type": "dump_truck",
+      "driver": "Amit Singh",
+      "catalog": {
+        "model": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+        "color": "#FF9900",
+        "capacity_tons": 25
+      },
+      "history": [
+        {
+          "date": "2026-06-01",
+          "position": { "x": 10.0, "y": 2.0, "z": 15.0 },
+          "heading": 180,
+          "status": "idle",
+          "location_name": "Depot",
+          "fuel_level": 90,
+          "work_hours": 0,
+          "trips": 0,
+          "material_moved_tons": 0,
+          "notes": "Ready for dispatch"
+        },
+        {
+          "date": "2026-06-10",
+          "position": { "x": 35.2, "y": 6.8, "z": 40.3 },
+          "heading": 90,
+          "status": "moving",
+          "location_name": "Main Corridor",
+          "fuel_level": 55,
+          "work_hours": 9.0,
+          "trips": 13,
+          "material_moved_tons": 325,
+          "notes": "Full operational"
+        },
+        {
+          "date": "2026-06-20",
+          "position": { "x": 20.5, "y": 4.2, "z": 22.1 },
+          "heading": 225,
+          "status": "idle",
+          "location_name": "Loading Bay",
+          "fuel_level": 30,
+          "work_hours": 3.5,
+          "trips": 4,
+          "material_moved_tons": 100,
+          "notes": "Refueling"
+        },
+        {
+          "date": "2026-07-01",
+          "position": { "x": 45.1, "y": 7.9, "z": 50.5 },
+          "heading": 45,
+          "status": "moving",
+          "location_name": "Extraction Zone",
+          "fuel_level": 60,
+          "work_hours": 8.0,
+          "trips": 11,
+          "material_moved_tons": 275,
+          "notes": "Operational"
+        }
+      ]
+    },
+    {
+      "id": "TRUCK_003",
+      "type": "loader",
+      "driver": "Vikram Patel",
+      "catalog": {
+        "model": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+        "color": "#00FF66",
+        "capacity_tons": 15
+      },
+      "history": [
+        {
+          "date": "2026-06-01",
+          "position": { "x": 5.0, "y": 1.0, "z": 8.0 },
+          "heading": 90,
+          "status": "idle",
+          "location_name": "Loading Bay",
+          "fuel_level": 80,
+          "work_hours": 0,
+          "trips": 0,
+          "material_moved_tons": 0,
+          "notes": "Standby"
+        },
+        {
+          "date": "2026-06-10",
+          "position": { "x": 15.3, "y": 3.5, "z": 18.7 },
+          "heading": 0,
+          "status": "moving",
+          "location_name": "Loading Bay",
+          "fuel_level": 65,
+          "work_hours": 6.0,
+          "trips": 8,
+          "material_moved_tons": 120,
+          "notes": "Loading operations"
+        },
+        {
+          "date": "2026-06-20",
+          "position": { "x": 30.8, "y": 5.5, "z": 35.2 },
+          "heading": 270,
+          "status": "moving",
+          "location_name": "Main Corridor",
+          "fuel_level": 70,
+          "work_hours": 7.0,
+          "trips": 10,
+          "material_moved_tons": 150,
+          "notes": "Regular ops"
+        },
+        {
+          "date": "2026-07-01",
+          "position": { "x": 18.5, "y": 4.0, "z": 20.8 },
+          "heading": 180,
+          "status": "idle",
+          "location_name": "Loading Bay",
+          "fuel_level": 75,
+          "work_hours": 2.0,
+          "trips": 2,
+          "material_moved_tons": 30,
+          "notes": "Maintenance window"
+        }
+      ]
+    },
+    {
+      "id": "TRUCK_004",
+      "type": "haul_truck",
+      "driver": "Priya Sharma",
+      "catalog": {
+        "model": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+        "color": "#0066FF",
+        "capacity_tons": 40
+      },
+      "history": [
+        {
+          "date": "2026-06-01",
+          "position": { "x": -10.0, "y": 0.0, "z": -10.0 },
+          "heading": 135,
+          "status": "idle",
+          "location_name": "Depot",
+          "fuel_level": 95,
+          "work_hours": 0,
+          "trips": 0,
+          "material_moved_tons": 0,
+          "notes": "Day off"
+        },
+        {
+          "date": "2026-06-10",
+          "position": { "x": 40.0, "y": 7.0, "z": 45.0 },
+          "heading": 315,
+          "status": "moving",
+          "location_name": "Extraction Zone",
+          "fuel_level": 40,
+          "work_hours": 10.0,
+          "trips": 8,
+          "material_moved_tons": 320,
+          "notes": "Heavy load transport"
+        },
+        {
+          "date": "2026-06-20",
+          "position": { "x": 55.5, "y": 9.2, "z": 60.1 },
+          "heading": 45,
+          "status": "moving",
+          "location_name": "Transport Route",
+          "fuel_level": 35,
+          "work_hours": 9.5,
+          "trips": 7,
+          "material_moved_tons": 280,
+          "notes": "Active haul"
+        },
+        {
+          "date": "2026-07-01",
+          "position": { "x": 32.1, "y": 5.8, "z": 36.9 },
+          "heading": 90,
+          "status": "idle",
+          "location_name": "Loading Bay",
+          "fuel_level": 50,
+          "work_hours": 4.0,
+          "trips": 3,
+          "material_moved_tons": 120,
+          "notes": "Partial shift"
+        }
+      ]
+    },
+    {
+      "id": "TRUCK_005",
+      "type": "dump_truck",
+      "driver": "Suresh Verma",
+      "catalog": {
+        "model": "/models/vehicles/dumper_truck/dumper-truck.gltf",
+        "color": "#FF3300",
+        "capacity_tons": 25
+      },
+      "history": [
+        {
+          "date": "2026-06-01",
+          "position": { "x": 15.0, "y": 3.0, "z": 20.0 },
+          "heading": 270,
+          "status": "idle",
+          "location_name": "Service Area",
+          "fuel_level": 70,
+          "work_hours": 1.0,
+          "trips": 1,
+          "material_moved_tons": 25,
+          "notes": "Early morning start"
+        },
+        {
+          "date": "2026-06-10",
+          "position": { "x": 45.3, "y": 8.0, "z": 50.2 },
+          "heading": 0,
+          "status": "moving",
+          "location_name": "Extraction Zone",
+          "fuel_level": 48,
+          "work_hours": 8.5,
+          "trips": 11,
+          "material_moved_tons": 275,
+          "notes": "Full day ops"
+        },
+        {
+          "date": "2026-06-20",
+          "position": { "x": 28.7, "y": 5.0, "z": 33.4 },
+          "heading": 225,
+          "status": "moving",
+          "location_name": "Main Corridor",
+          "fuel_level": 62,
+          "work_hours": 7.0,
+          "trips": 9,
+          "material_moved_tons": 225,
+          "notes": "Active route"
+        },
+        {
+          "date": "2026-07-01",
+          "position": { "x": 40.5, "y": 7.2, "z": 42.8 },
+          "heading": 180,
+          "status": "moving",
+          "location_name": "Extraction Zone",
+          "fuel_level": 55,
+          "work_hours": 6.5,
+          "trips": 8,
+          "material_moved_tons": 200,
+          "notes": "Operational"
+        }
+      ]
+    }
+  ],
+  "statistics": {
+    "total_trucks": 5,
+    "total_history_days": 31,
+    "trucks_by_status": {
+      "active": 4,
+      "maintenance": 1,
+      "offline": 0
+    }
+  }
+}
